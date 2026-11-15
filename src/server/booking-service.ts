@@ -3,7 +3,9 @@ import mongoose, { Types } from "mongoose";
 import { z } from "zod";
 import {
   BOOKING_SOURCES,
+  BOOKING_STATUSES,
   BookingError,
+  addMinutes,
   LOCK_HOLDING_STATUSES,
   assertCancellable,
   assertCustomerMayBook,
@@ -428,6 +430,296 @@ export async function getAvailability(raw: AvailabilityInput): Promise<Availabil
       hourlyRate: r.hourlyRate,
       free: slotStarts.map((slot) => !taken.has(`${r._id}:${slot.getTime()}`)),
     })),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Counter actions (staff only)
+// ---------------------------------------------------------------------------
+
+const staffActionSchema = z.object({
+  code: z.string().min(1).max(20),
+  actor: actorSchema,
+  note: z.string().trim().max(500).optional(),
+});
+export type StaffActionInput = z.input<typeof staffActionSchema>;
+
+/** How early before its start a booking can be checked in. */
+export const CHECK_IN_EARLY_MINUTES = 60;
+
+/** The customer has arrived: confirmed → checked_in. Slots stay held. */
+export async function checkInBooking(raw: StaffActionInput, clock: Clock = {}): Promise<BookingRecord> {
+  const input = parse(staffActionSchema, raw);
+  const now = clock.now ?? new Date();
+  requireStaff(input.actor);
+  await ready();
+
+  const booking = await findByCode(input.code);
+  if (booking.status !== "confirmed") {
+    throw new BookingError("INVALID_STATE", `a ${booking.status} booking cannot be checked in`);
+  }
+  if (now < addMinutes(booking.start, -CHECK_IN_EARLY_MINUTES)) {
+    throw new BookingError("TOO_SOON", "too early to check in");
+  }
+  if (now >= booking.end) throw new BookingError("INVALID_STATE", "the booking has already ended");
+
+  await setStatus(booking, "checked_in", input, now, { releaseLocks: false });
+  return findByCode(input.code);
+}
+
+/**
+ * The customer did not come: confirmed → no_show, after the grace period.
+ * Frees the slots and counts toward the customer's online booking block.
+ */
+export async function markNoShow(raw: StaffActionInput, clock: Clock = {}): Promise<BookingRecord> {
+  const input = parse(staffActionSchema, raw);
+  const now = clock.now ?? new Date();
+  requireStaff(input.actor);
+  await ready();
+  const settings = await loadSettings();
+
+  const booking = await findByCode(input.code);
+  if (booking.status !== "confirmed") {
+    throw new BookingError("INVALID_STATE", `a ${booking.status} booking cannot be marked as no-show`);
+  }
+  if (now < addMinutes(booking.start, settings.graceMinutes)) {
+    throw new BookingError("TOO_SOON", "the grace period has not passed");
+  }
+
+  await setStatus(booking, "no_show", input, now, {
+    releaseLocks: true,
+    // Counted in the same transaction, so a retried no-show never counts twice.
+    async extra(session) {
+      const filter = booking.customer.userId
+        ? { _id: booking.customer.userId }
+        : booking.customer.email
+          ? { email: booking.customer.email }
+          : null;
+      if (filter) await User.updateOne(filter, { $inc: { noShowCount: 1 } }, { session });
+    },
+  });
+  return findByCode(input.code);
+}
+
+/** The session is over, possibly early: checked_in → completed. Frees what is left. */
+export async function completeBooking(raw: StaffActionInput, clock: Clock = {}): Promise<BookingRecord> {
+  const input = parse(staffActionSchema, raw);
+  const now = clock.now ?? new Date();
+  requireStaff(input.actor);
+  await ready();
+
+  const booking = await findByCode(input.code);
+  if (booking.status !== "checked_in") {
+    throw new BookingError("INVALID_STATE", `a ${booking.status} booking cannot be completed`);
+  }
+  await setStatus(booking, "completed", input, now, { releaseLocks: true });
+  return findByCode(input.code);
+}
+
+async function setStatus(
+  booking: BookingRecord,
+  to: BookingRecord["status"],
+  input: { actor: Actor; note?: string },
+  now: Date,
+  options: { releaseLocks: boolean; extra?: (session: mongoose.ClientSession) => Promise<void> },
+): Promise<void> {
+  await transaction(async (session) => {
+    const update = await Booking.updateOne(
+      { _id: booking._id, status: booking.status },
+      {
+        $set: { status: to },
+        $push: {
+          history: {
+            at: now,
+            by: actorLabel(input.actor),
+            from: booking.status,
+            to,
+            ...(input.note ? { note: input.note } : {}),
+          },
+        },
+      },
+      { session },
+    );
+    if (update.modifiedCount !== 1) {
+      throw new BookingError("INVALID_STATE", "the booking changed in the meantime");
+    }
+    if (options.releaseLocks) await SlotLock.deleteMany({ bookingId: booking._id }, { session });
+    await options.extra?.(session);
+  });
+}
+
+function requireStaff(actor: Actor): void {
+  if (kindOf(actor) !== "staff") throw new BookingError("FORBIDDEN", "staff only");
+}
+
+// ---------------------------------------------------------------------------
+// Dashboard reads
+// ---------------------------------------------------------------------------
+
+export interface ScheduleBooking {
+  id: string;
+  code: string;
+  type: BookingRecord["type"];
+  status: BookingRecord["status"];
+  start: Date;
+  end: Date;
+  customerName: string;
+  customerPhone: string;
+  source: BookingRecord["source"];
+  partySize?: number;
+}
+
+export interface ScheduleRow {
+  id: string;
+  name: string;
+  type: (typeof RESOURCE_TYPES)[number];
+  bookableOnline: boolean;
+  /** One entry per slot: the id of the booking holding it, or null when free. */
+  slots: (string | null)[];
+}
+
+export interface DaySchedule {
+  date: string;
+  timezone: string;
+  slotMinutes: number;
+  open: boolean;
+  opensAt: Date | null;
+  closesAt: Date | null;
+  slotStarts: Date[];
+  rows: ScheduleRow[];
+  /** Bookings holding slots today, by id. */
+  bookings: Record<string, ScheduleBooking>;
+  /** Every booking that starts this business day, any status, by start time. */
+  dayList: ScheduleBooking[];
+}
+
+/**
+ * The counter's view of one business day: every active station, including
+ * walk-in ones, with the booking holding each slot. Built from slot locks, so
+ * it always agrees with availability.
+ */
+export async function getDaySchedule(date: string): Promise<DaySchedule> {
+  if (!isLocalDate(date)) throw new BookingError("INVALID_INPUT", "date must be YYYY-MM-DD");
+  await ready();
+  const settings = await loadSettings();
+  const day = businessDayWindow(date, settings.openingHours, settings.timezone);
+  const base = { date, timezone: settings.timezone, slotMinutes: settings.slotMinutes };
+  if (!day) {
+    return { ...base, open: false, opensAt: null, closesAt: null, slotStarts: [], rows: [], bookings: {}, dayList: [] };
+  }
+
+  const resources = await Resource.find({ active: true }).sort({ sortOrder: 1 }).lean();
+  const locks = await SlotLock.find({
+    resourceId: { $in: resources.map((r) => r._id) },
+    slotStart: { $gte: day.open, $lt: day.close },
+  })
+    .select({ resourceId: 1, slotStart: 1, bookingId: 1, _id: 0 })
+    .lean();
+
+  const held = new Map(locks.map((l) => [`${l.resourceId}:${l.slotStart.getTime()}`, String(l.bookingId)]));
+  const holdingIds = [...new Set(locks.map((l) => String(l.bookingId)))];
+
+  const [holding, startingToday] = await Promise.all([
+    Booking.find({ _id: { $in: holdingIds } }).lean<BookingRecord[]>(),
+    Booking.find({ start: { $gte: day.open, $lt: day.close } })
+      .sort({ start: 1 })
+      .lean<BookingRecord[]>(),
+  ]);
+
+  const slotStarts = expandSlots(day.open, day.close, settings.slotMinutes);
+  return {
+    ...base,
+    open: true,
+    opensAt: day.open,
+    closesAt: day.close,
+    slotStarts,
+    rows: resources.map((r) => ({
+      id: String(r._id),
+      name: r.name,
+      type: r.type,
+      bookableOnline: r.bookableOnline,
+      slots: slotStarts.map((slot) => held.get(`${r._id}:${slot.getTime()}`) ?? null),
+    })),
+    bookings: Object.fromEntries(holding.map((b) => [String(b._id), toScheduleBooking(b)])),
+    dayList: startingToday.map(toScheduleBooking),
+  };
+}
+
+function toScheduleBooking(b: BookingRecord): ScheduleBooking {
+  return {
+    id: String(b._id),
+    code: b.code,
+    type: b.type,
+    status: b.status,
+    start: b.start,
+    end: b.end,
+    customerName: b.customer.name,
+    customerPhone: b.customer.phone,
+    source: b.source,
+    ...(b.partySize ? { partySize: b.partySize } : {}),
+  };
+}
+
+const searchSchema = z.object({
+  q: z.string().trim().max(80).default(""),
+  status: z.enum(BOOKING_STATUSES).optional(),
+  /** Business day, YYYY-MM-DD. */
+  date: z.string().optional(),
+  limit: z.number().int().min(1).max(100).default(50),
+});
+export type SearchInput = z.input<typeof searchSchema>;
+
+/** Find bookings by code, customer name or phone, newest first. */
+export async function searchBookings(raw: SearchInput): Promise<ScheduleBooking[]> {
+  const input = parse(searchSchema, raw);
+  await ready();
+
+  const filter: Record<string, unknown> = {};
+  if (input.status) filter.status = input.status;
+
+  if (input.date) {
+    if (!isLocalDate(input.date)) throw new BookingError("INVALID_INPUT", "date must be YYYY-MM-DD");
+    const settings = await loadSettings();
+    const day = businessDayWindow(input.date, settings.openingHours, settings.timezone);
+    if (!day) return [];
+    filter.start = { $gte: day.open, $lt: day.close };
+  }
+
+  if (input.q) {
+    const text = escapeRegex(input.q);
+    const digits = input.q.replace(/\D/g, "");
+    filter.$or = [
+      { code: normalizeBookingCode(input.q) },
+      { "customer.name": { $regex: text, $options: "i" } },
+      { "customer.email": { $regex: text, $options: "i" } },
+      // Phone numbers are typed with or without spaces: match the digits in order.
+      ...(digits.length >= 4 ? [{ "customer.phone": { $regex: digits.split("").join("\\D*") } }] : []),
+    ];
+  }
+
+  const found = await Booking.find(filter).sort({ start: -1 }).limit(input.limit).lean<BookingRecord[]>();
+  return found.map(toScheduleBooking);
+}
+
+function escapeRegex(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/** History and details for the staff booking page. */
+export async function getBookingDetails(code: string) {
+  await ready();
+  const booking = await findByCode(code);
+  const resources = await Resource.find({ _id: { $in: booking.resourceIds } })
+    .select({ name: 1, sortOrder: 1, type: 1 })
+    .sort({ sortOrder: 1 })
+    .lean();
+  return {
+    ...toScheduleBooking(booking),
+    customerEmail: booking.customer.email,
+    notes: booking.notes,
+    priceEstimate: booking.priceEstimate,
+    resources: resources.map((r) => ({ id: String(r._id), name: r.name, type: r.type })),
+    history: booking.history,
   };
 }
 
