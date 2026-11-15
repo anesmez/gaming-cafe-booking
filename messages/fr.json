@@ -25,7 +25,8 @@
         "description": "Toute la salle rien que pour votre groupe, sur demande."
       }
     },
-    "staffLink": "Espace équipe"
+    "staffLink": "Espace équipe",
+    "book": "Réserver un créneau"
   },
   "login": {
     "title": "Connexion",
@@ -95,5 +96,87 @@
       "calendarSummary": "{venue} · {stations}",
       "calendarDescription": "Code de réservation : {code}"
     }
+  },
+  "book": {
+    "title": "Réserver",
+    "loading": "Chargement…",
+    "loginTitle": "Connectez-vous pour réserver",
+    "loginLead": "Un code à 6 chiffres suffit, pas de mot de passe. Vous restez connecté 90 jours sur cet appareil.",
+    "loginCta": "Recevoir mon code",
+    "unavailable": "La réservation en ligne est indisponible pour le moment. Appelez-nous ou passez à l'accueil.",
+    "what": "Quoi ?",
+    "types": {
+      "pc": "PC gaming",
+      "console": "PS5"
+    },
+    "lanHint": "Pour privatiser toute la salle (LAN), contactez-nous directement.",
+    "players": "Nombre de postes",
+    "playersValue": "{count, plural, one {# poste} other {# postes côte à côte}}",
+    "when": "Quel jour ?",
+    "today": "Aujourd'hui",
+    "duration": "Durée",
+    "durationValue": "{hours} h{half, select, yes { 30} other {}}",
+    "time": "À quelle heure ?",
+    "loadingSlots": "Recherche des créneaux libres…",
+    "noSlots": "Plus de créneau libre ce jour-là pour cette durée. Essayez un autre jour ou une durée plus courte.",
+    "closed": "Fermé ce jour-là.",
+    "slotsError": "Impossible de charger les créneaux. Réessayez.",
+    "you": "Vos coordonnées",
+    "name": "Nom",
+    "phone": "Téléphone",
+    "phoneHint": "Pour vous joindre en cas de besoin.",
+    "summary": "{date}, {start} – {end}",
+    "payOnSite": "Paiement sur place, en espèces.",
+    "confirm": "Confirmer la réservation",
+    "confirming": "Réservation…",
+    "pickTime": "Choisissez une heure",
+    "errors": {
+      "SLOT_TAKEN": "Ce créneau vient d'être pris. Choisissez-en un autre.",
+      "OUTSIDE_HOURS": "Ce créneau est en dehors des horaires d'ouverture.",
+      "TOO_SOON": "Ce créneau commence trop tôt. Réservez au moins 30 minutes à l'avance.",
+      "TOO_FAR": "Ce créneau est trop loin dans le temps.",
+      "LIMIT_REACHED": "Vous avez déjà 2 réservations à venir. Annulez-en une pour en faire une autre.",
+      "BLOCKED": "La réservation en ligne n'est pas disponible pour votre compte. Contactez l'accueil.",
+      "INVALID_DURATION": "Cette durée n'est pas proposée.",
+      "TOO_MANY_STATIONS": "Trop de postes pour une seule réservation.",
+      "INVALID_INPUT": "Vérifiez votre nom et votre numéro de téléphone.",
+      "LOGIN": "Votre session a expiré. Reconnectez-vous.",
+      "other": "La réservation n'a pas pu être enregistrée. Réessayez."
+    }
+  },
+  "manage": {
+    "title": "Votre réservation",
+    "loading": "Chargement…",
+    "notFoundTitle": "Réservation introuvable",
+    "notFoundLead": "Ce lien n'est pas valide ou a expiré. Vérifiez l'e-mail de confirmation, ou connectez-vous avec l'adresse utilisée pour réserver.",
+    "login": "Se connecter",
+    "justBooked": "C'est réservé. Un e-mail de confirmation est en route.",
+    "codeLabel": "Code à présenter à l'accueil",
+    "status": {
+      "pending_approval": "En attente de validation",
+      "confirmed": "Confirmée",
+      "checked_in": "En cours",
+      "completed": "Terminée",
+      "cancelled": "Annulée",
+      "rejected": "Refusée",
+      "expired": "Expirée",
+      "no_show": "Absence"
+    },
+    "date": "Date",
+    "time": "Horaire",
+    "stations": "Postes",
+    "price": "Prix estimé",
+    "priceValue": "{amount} {currency}, à régler sur place",
+    "priceOnSite": "À régler sur place",
+    "address": "Adresse",
+    "arrival": "Votre poste est gardé {minutes} minutes après l'heure de début.",
+    "cancel": "Annuler la réservation",
+    "cancelling": "Annulation…",
+    "cancelUntil": "Annulation en ligne possible jusqu'au {date}.",
+    "cancelClosed": "L'annulation en ligne n'est plus possible. Appelez l'accueil.",
+    "cancelled": "Réservation annulée. Le créneau est libéré.",
+    "cancelError": "L'annulation n'a pas pu être faite. Réessayez ou appelez l'accueil.",
+    "bookAgain": "Faire une autre réservation",
+    "home": "Retour à l'accueil"
   }
 }

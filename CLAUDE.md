@@ -9,7 +9,7 @@ The product spec is `docs/SPEC.md`. Read it before any work. It defines the book
 - [x] 1. Scaffold
 - [x] 2. Booking engine
 - [x] 3. Auth and email
-- [ ] 4. Public booking flow
+- [x] 4. Public booking flow
 - [ ] 5. Dashboard
 - [ ] 6. LAN requests
 - [ ] 7. Settings
@@ -40,11 +40,12 @@ pnpm lint         # eslint
 pnpm typecheck    # tsc --noEmit
 pnpm test         # unit tests (no database)
 pnpm test:int     # integration tests on an in-memory MongoDB replica set
+pnpm test:e2e     # Playwright on a phone viewport; needs `pnpm build` first
 pnpm build        # seeds if MONGODB_URI is set, then production build
 pnpm seed         # seed settings, stations and the owner (reads .env.local)
 ```
 
-Before opening a PR, all of lint, typecheck, test, test:int and build must pass.
+Before opening a PR, all of lint, typecheck, test, test:int, build and test:e2e must pass. The e2e run needs a MongoDB binary download, so it may only work in CI.
 
 ## Notes
 
