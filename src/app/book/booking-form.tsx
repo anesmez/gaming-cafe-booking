@@ -227,7 +227,8 @@ export function BookingForm({ dates, durations, maxStations, slotMinutes, statio
             inputMode="tel"
             autoComplete="tel"
             required
-            pattern="\+?[0-9 .\-]{9,20}"
+            minLength={9}
+            maxLength={20}
             defaultValue={defaults.phone}
             aria-describedby="phone-hint"
           />
