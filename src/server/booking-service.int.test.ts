@@ -1,7 +1,7 @@
 import { MongoMemoryReplSet } from "mongodb-memory-server";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { BOOKING_CODE_RE, BookingError, LOCK_HOLDING_STATUSES, type BookingErrorCode } from "@/lib/booking";
-import { algiers } from "@/lib/booking/fixtures";
+import { algiers, testSettings } from "@/lib/booking/fixtures";
 import {
   cancelBooking,
   createBooking,
@@ -14,14 +14,15 @@ import {
 import { connectDb, disconnectDb } from "./db";
 import { Booking } from "./models/booking";
 import { Resource } from "./models/resource";
+import { Settings } from "./models/settings";
 import { SlotLock } from "./models/slot-lock";
 import { User } from "./models/user";
 import { seed } from "./seed";
 
 /**
  * The booking engine against a real MongoDB replica set (transactions need
- * one). Seeded like production: 10 PCs, of which PC 01–05 are bookable online,
- * one PS5, open 10:00 to 02:00 in Africa/Algiers.
+ * one). Seeded like production (10 PCs, of which PC 01–05 are bookable online,
+ * one PS5, Africa/Algiers) but with fixed test hours: open 10:00 to 02:00.
  */
 
 const DAY = "2026-12-02"; // a Wednesday
@@ -44,6 +45,8 @@ beforeAll(async () => {
   replSet = await MongoMemoryReplSet.create({ replSet: { count: 1 } });
   await connectDb(replSet.getUri("cafe-engine-test"));
   await seed("owner@example.com");
+  // Fixed test hours, independent of the venue's real ones in the seed.
+  await Settings.updateOne({ key: "default" }, { $set: { openingHours: testSettings().openingHours } });
 
   const pcs = await Resource.find({ type: "pc" }).sort({ sortOrder: 1 }).lean();
   pcIds = pcs.map((r) => String(r._id));

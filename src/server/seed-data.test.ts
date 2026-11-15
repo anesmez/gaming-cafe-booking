@@ -30,6 +30,7 @@ describe("buildDefaultSettings", () => {
 
   it("matches the venue assumptions in the spec", () => {
     expect(settings).toMatchObject({
+      venueName: "Respawn Cyber Gaming",
       timezone: "Africa/Algiers",
       currency: "DZD",
       locale: "fr",
@@ -61,6 +62,7 @@ describe("buildDefaultSettings", () => {
 
   it("has opening hours for all seven weekdays, aligned to the slot size", () => {
     expect(settings.openingHours.map((h) => h.weekday)).toEqual([0, 1, 2, 3, 4, 5, 6]);
+    expect(settings.openingHours.every((h) => h.open === "16:00" && h.close === "04:00")).toBe(true);
     for (const { open, close } of settings.openingHours) {
       for (const time of [open, close]) {
         const minutes = Number(time.slice(3));

@@ -21,17 +21,19 @@ export interface SeedResource {
 export function buildDefaultSettings() {
   return {
     key: "default",
-    venueName: "Gaming Café",
-    address: "",
+    venueName: "Respawn Cyber Gaming",
+    // Address and hours come from the café's Google Maps listing; the owner can
+    // change both in Settings (milestone 7).
+    address: "Villa n°4, Dar El Beïda 16033, Alger",
     timezone: "Africa/Algiers",
     currency: "DZD",
     locale: "fr",
     slotMinutes: 30,
-    // Placeholder hours until the owner confirms them. close < open = next day.
+    // Every day 16:00 to 04:00. close < open = next day.
     openingHours: [0, 1, 2, 3, 4, 5, 6].map((weekday) => ({
       weekday,
-      open: "10:00",
-      close: "02:00",
+      open: "16:00",
+      close: "04:00",
     })),
     station: {
       minMinutes: 60,

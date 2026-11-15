@@ -1,8 +1,9 @@
 {
   "app": {
-    "name": "Gaming Café",
-    "title": "Gaming Café — Réservation en ligne",
-    "description": "Réservez un PC, la PS5 ou toute la salle pour une LAN, sur les créneaux réellement disponibles."
+    "name": "Respawn Cyber Gaming",
+    "title": "Respawn Cyber Gaming — Réservation en ligne",
+    "description": "Réservez un PC, la PS5 ou toute la salle pour une LAN chez Respawn Cyber Gaming, sur les créneaux réellement disponibles.",
+    "logoAlt": "Logo Respawn Cyber Gaming"
   },
   "home": {
     "eyebrow": "Réservation en ligne",

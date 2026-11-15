@@ -1,16 +1,17 @@
-# Gaming Café Booking & Management System — Spec
+# Respawn Cyber Gaming — Booking & Management System Spec
 
 Nov 15, 2026
 
 ## Overview
 
-A web app where customers book PC stations, the PS5 or the whole venue from live availability, and the owner runs every reservation from one calendar. It replaces WhatsApp and phone bookings, which today produce overlapping reservations.
+A web app for Respawn Cyber Gaming (Dar El Beïda, Algiers) where customers book PC stations, the PS5 or the whole venue from live availability, and the owner runs every reservation from one calendar. It replaces WhatsApp and phone bookings, which today produce overlapping reservations.
 
 One rule makes it work: **the system is the only place a reservation exists.** Phone and WhatsApp requests can still come in, but staff enter them in the dashboard before saying yes. If the owner keeps confirming by chat on the side, the app becomes a third channel and the overlaps get worse.
 
 Assumptions used throughout, to confirm with the owner (see Open questions):
 
 - The café is in Algeria: timezone `Africa/Algiers`, prices in DZD, French UI first.
+- Open every day from 16:00 to 04:00, per its Google Maps listing. To confirm with the owner.
 - 10 PC stations and 1 PS5. Every count is configurable.
 - Customers pay at the café, in cash. No online payment in v1.
 - Most daily traffic is walk-in; online booking covers planned sessions, groups and LAN events.
@@ -147,7 +148,7 @@ Six MongoDB collections, plus the session and verification collections the auth 
 // settings: one document
 { venueName, address, timezone: "Africa/Algiers", currency: "DZD", locale: "fr",
   slotMinutes: 30,
-  openingHours: [{ weekday: 0-6, open: "10:00", close: "02:00" }], // close < open = next day
+  openingHours: [{ weekday: 0-6, open: "16:00", close: "04:00" }], // close < open = next day
   station: { minMinutes: 60, maxMinutes: 360, minLeadMinutes: 30, maxAdvanceDays: 14,
              cancelCutoffMinutes: 120, maxStationsPerBooking: 5 },
   venue:   { minMinutes: 180, minLeadHours: 48, maxAdvanceDays: 60, cancelCutoffHours: 48,
@@ -254,7 +255,7 @@ Code layout rules for the repo:
 MONGODB_URI=
 BETTER_AUTH_SECRET=
 RESEND_API_KEY=
-EMAIL_FROM="Café <reservations@example.com>"
+EMAIL_FROM="Respawn Cyber Gaming <reservations@example.com>"
 APP_URL=
 OWNER_EMAIL=
 CRON_SECRET=
@@ -316,7 +317,7 @@ The answers change defaults, not the design, so the build can start before they 
 
 - [ ] Are the 10 PCs grouped in rooms or zones (a VIP room, for example)?
 - [x] Do customers care which PC they get, or only that their seats are together? They don't care: they choose how many seats and the system assigns adjacent stations.
-- [ ] What are the opening hours per day? Are overnight sessions offered?
+- [ ] What are the opening hours per day? The seed uses 16:00 to 04:00 every day from the Google Maps listing; confirm, including Fridays and Ramadan.
 - [ ] Prices: PC per hour, PS5 per hour, LAN privatisation. Any packs or night rates?
 - [ ] LAN: minimum hours, deposit, and does it always take the whole venue or sometimes part of it?
 - [ ] How many PCs should stay walk-in only at the start?

@@ -1,4 +1,4 @@
-# Gaming café booking system
+# Respawn Cyber Gaming booking system
 
 @AGENTS.md
 
