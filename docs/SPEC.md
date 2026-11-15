@@ -50,7 +50,7 @@ Three things can be booked. A full-venue booking is the only one that needs the 
 
 | Resource | Default count | How it is booked | Confirmation |
 | --- | --- | --- | --- |
-| PC station | 10 | One to five numbered stations per booking; the system proposes adjacent free ones and the customer can change them | Instant |
+| PC station | 10 | One to five stations per booking. Customers choose how many, not which: the system seats a group on adjacent free stations. Staff can pick specific stations | Instant |
 | PS5 | 1 | The console, with the number of players noted | Instant |
 | Full venue (LAN) | 1 | Blocks every station and the PS5 for the whole range | Owner approves |
 
@@ -79,7 +79,7 @@ Conflict rules, enforced by the database and not by the UI:
 A customer goes from the home page to a confirmed booking in under a minute on a phone.
 
 1. Choose what to book: PCs, PS5 or Private LAN.
-2. Pick the date, start time and duration. The grid shows only free slots. For PCs, choose how many stations; the system proposes adjacent free ones.
+2. Pick the date, start time and duration. The grid shows only free slots. For PCs, choose how many stations; the system assigns adjacent free ones.
 3. Enter name, phone and email. The first time on a device, a 6-digit code sent to that email verifies it. Later visits skip this for 90 days.
 4. Review the summary with the estimated price, marked "pay at the café", and confirm.
 5. The server locks the slots atomically. If another customer took one a second earlier, the page says which slot was lost and offers the nearest free alternatives.
@@ -177,7 +177,7 @@ Six MongoDB collections, plus the session and verification collections the auth 
   history: [{ at, by, from, to, note? }],
   createdBy, createdAt, updatedAt }
 // indexes: { code: 1 } unique, { start: 1, end: 1 }, { status: 1, start: 1 },
-//          { "customer.userId": 1, start: -1 }
+//          { "customer.userId": 1, start: -1 }, { "customer.email": 1, start: -1 }
 
 // slotLocks: one per resource per slot held by an active booking
 { _id, resourceId, slotStart: Date, bookingId }
@@ -212,7 +212,7 @@ async function createBooking(input) {
 
 - **Availability** is read from `slotLocks` only: a slot with no lock is free. It is never computed from overlap queries on `bookings`, so there is one source of truth.
 - **LAN booking** inserts locks for every active station and the PS5 across the range plus the cleanup buffer.
-- **Statuses that hold locks:** `pending_approval`, `confirmed`, `checked_in`. Moving to `cancelled`, `rejected`, `expired` or `no_show` deletes the booking's future locks in the same transaction as the status change.
+- **Statuses that hold locks:** `pending_approval`, `confirmed`, `checked_in`. Moving to `cancelled`, `rejected`, `expired` or `no_show` deletes all of the booking's locks in the same transaction as the status change, so a lock always belongs to a booking that still holds its slots.
 - **Moving a booking** deletes the old locks and inserts the new ones in one transaction.
 - **Cleanup:** a nightly job deletes locks older than 30 days.
 - **Slot size is fixed at 30 minutes** once live. Changing it needs a migration of existing locks.
@@ -282,7 +282,7 @@ CRON_SECRET=
 | `GET /api/cron/tick` | `CRON_SECRET` | Reminders, expiries, auto-complete, cleanup |
 | `/api/auth/[...all]` | Public | Auth library handler |
 
-Errors return a stable code the UI can translate: `SLOT_TAKEN`, `OUTSIDE_HOURS`, `TOO_SOON`, `TOO_FAR`, `LIMIT_REACHED`, `BLOCKED`, `CUTOFF_PASSED`.
+Errors return a stable code the UI can translate: `SLOT_TAKEN`, `OUTSIDE_HOURS`, `TOO_SOON`, `TOO_FAR`, `LIMIT_REACHED`, `BLOCKED`, `CUTOFF_PASSED`, `INVALID_INPUT`, `INVALID_DURATION`, `TOO_MANY_STATIONS`, `NOT_FOUND`, `INVALID_STATE`, `FORBIDDEN`. The list lives in `src/lib/booking/types.ts`.
 
 ## Non-functional requirements
 
@@ -315,7 +315,7 @@ Eight milestones, one per Claude Code session, each ending with passing tests an
 The answers change defaults, not the design, so the build can start before they are all in.
 
 - [ ] Are the 10 PCs grouped in rooms or zones (a VIP room, for example)?
-- [ ] Do customers care which PC they get, or only that their seats are together?
+- [x] Do customers care which PC they get, or only that their seats are together? They don't care: they choose how many seats and the system assigns adjacent stations.
 - [ ] What are the opening hours per day? Are overnight sessions offered?
 - [ ] Prices: PC per hour, PS5 per hour, LAN privatisation. Any packs or night rates?
 - [ ] LAN: minimum hours, deposit, and does it always take the whole venue or sometimes part of it?
