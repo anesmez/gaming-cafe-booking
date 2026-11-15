@@ -2,11 +2,11 @@
 
 Booking and management system for Respawn Cyber Gaming, a gaming café in Dar El Beïda, Algiers: customers book PC stations, the PS5 or the whole venue for a LAN from live availability, and staff run every reservation from one calendar.
 
-The full product spec is in [`docs/SPEC.md`](docs/SPEC.md).
+Live at https://gaming-cafe-booking-ten.vercel.app. The full product spec is in [`docs/SPEC.md`](docs/SPEC.md).
 
 ## Stack
 
-Next.js (App Router) on Vercel, MongoDB Atlas with Mongoose, Tailwind CSS with shadcn/ui, next-intl (French first), zod, Vitest.
+Next.js (App Router) on Vercel, MongoDB Atlas with Mongoose, Tailwind CSS with shadcn/ui, next-intl (French first), zod, Vitest and Playwright. Email goes out through Gmail SMTP (Resend as fallback).
 
 ## Getting started
 
@@ -29,6 +29,7 @@ pnpm dev                     # http://localhost:3000
 | `pnpm typecheck` | TypeScript, no emit |
 | `pnpm test` | Unit tests, no database |
 | `pnpm test:int` | Integration tests on an in-memory MongoDB replica set |
+| `pnpm test:e2e` | Playwright on a phone viewport, against a production build |
 | `pnpm seed` | Idempotent seed; never overwrites existing settings or stations |
 
 ## Deploying
@@ -38,3 +39,7 @@ Every push to `main` deploys to Vercel. The build runs the seed first whenever `
 `GET /api/health` returns `{ "ok": true, "db": "up", "seeded": true }` when the app can reach MongoDB and the seed has run.
 
 The Atlas cluster must accept connections from Vercel: in Atlas, Network Access, allow `0.0.0.0/0`.
+
+Production environment variables on Vercel: `MONGODB_URI`, `OWNER_EMAIL`, `BETTER_AUTH_SECRET`, `GMAIL_USER`, `GMAIL_APP_PASSWORD`, `CRON_SECRET`, and optionally `RESEND_API_KEY` with `EMAIL_FROM`.
+
+`GET /api/cron/tick` sends reminders and the owner's daily summary, expires unanswered LAN requests and closes finished sessions. GitHub Actions calls it every 30 minutes (`.github/workflows/tick.yml`, which needs `CRON_SECRET` as a repository secret) and Vercel Cron once a day (`vercel.json`).
