@@ -1,16 +1,21 @@
 import { Schema, model, models, type InferSchemaType, type Model } from "mongoose";
+import { ROLES } from "@/lib/auth/roles";
 
-export const USER_ROLES = ["customer", "staff", "owner"] as const;
-export type UserRole = (typeof USER_ROLES)[number];
+export const USER_ROLES = ROLES;
+export type { Role as UserRole } from "@/lib/auth/roles";
 
 /**
- * Milestone 3 wires this collection to the auth library (email one-time code).
- * Until then it only holds the seeded owner.
+ * The `users` collection is shared with the auth library (see src/server/auth.ts),
+ * which creates a user the first time an email address logs in and maintains
+ * `emailVerified`, `image`, `createdAt` and `updatedAt`. The other fields are
+ * ours; none of them can be set by the client through the auth API.
  */
 const userSchema = new Schema(
   {
     email: { type: String, required: true, unique: true, lowercase: true, trim: true },
+    emailVerified: { type: Boolean, default: false },
     name: { type: String, default: "" },
+    image: { type: String },
     phone: { type: String, default: "" },
     role: { type: String, enum: USER_ROLES, required: true, default: "customer" },
     noShowCount: { type: Number, required: true, default: 0, min: 0 },

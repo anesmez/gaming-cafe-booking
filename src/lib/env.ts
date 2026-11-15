@@ -43,6 +43,30 @@ export function parseEnv(source: Record<string, string | undefined>): Env {
   return result.data;
 }
 
+/**
+ * Public base URL of the site, without a trailing slash. APP_URL wins; on
+ * Vercel the production domain or the deployment URL is used; otherwise local dev.
+ */
+export function getAppUrl(source: Record<string, string | undefined> = process.env): string {
+  const url =
+    source.APP_URL ||
+    (source.VERCEL_ENV === "production" && source.VERCEL_PROJECT_PRODUCTION_URL
+      ? `https://${source.VERCEL_PROJECT_PRODUCTION_URL}`
+      : source.VERCEL_URL
+        ? `https://${source.VERCEL_URL}`
+        : "http://localhost:3000");
+  return url.replace(/\/+$/, "");
+}
+
+/** The secret that signs session cookies. Required wherever login is used. */
+export function getAuthSecret(source: Record<string, string | undefined> = process.env): string {
+  const secret = source.BETTER_AUTH_SECRET;
+  if (!secret || secret.length < 32) {
+    throw new EnvError(["BETTER_AUTH_SECRET: must be set to at least 32 characters"]);
+  }
+  return secret;
+}
+
 let cached: Env | undefined;
 
 /**

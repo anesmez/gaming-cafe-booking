@@ -1,5 +1,6 @@
 import { Gamepad2, Monitor, Users } from "lucide-react";
 import Image from "next/image";
+import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -55,7 +56,12 @@ export default function HomePage() {
         ))}
       </section>
 
-      <footer className="mt-auto text-sm text-muted-foreground">{t("home.payOnSite")}</footer>
+      <footer className="mt-auto flex flex-wrap items-center justify-between gap-2 text-sm text-muted-foreground">
+        <span>{t("home.payOnSite")}</span>
+        <Link href="/admin" className="underline-offset-4 hover:underline">
+          {t("home.staffLink")}
+        </Link>
+      </footer>
     </main>
   );
 }

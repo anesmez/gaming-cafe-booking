@@ -3,11 +3,16 @@ import { GeistMono } from "geist/font/mono";
 import { GeistSans } from "geist/font/sans";
 import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getTranslations } from "next-intl/server";
+import { getAppUrl } from "@/lib/env";
 import "./globals.css";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("app");
-  return { title: t("title"), description: t("description") };
+  return {
+    metadataBase: new URL(getAppUrl()),
+    title: t("title"),
+    description: t("description"),
+  };
 }
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
