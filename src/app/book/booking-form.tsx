@@ -238,7 +238,7 @@ export function BookingForm({ dates, durations, maxStations, slotMinutes, statio
         </div>
       </fieldset>
 
-      <div className="sticky bottom-0 -mx-5 flex flex-col gap-2 border-t border-border bg-background/95 px-5 py-4 backdrop-blur">
+      <div className="sticky bottom-0 z-10 -mx-5 flex flex-col gap-2 border-t border-border bg-background/95 px-5 py-4 backdrop-blur">
         {chosen ? (
           <p className="text-sm">
             <span className="font-semibold capitalize">

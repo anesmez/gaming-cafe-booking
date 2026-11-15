@@ -60,6 +60,10 @@ test("a customer books two PCs and cancels from the booking page", async ({ page
 
   await page.getByLabel("Nom", { exact: true }).fill("Yacine");
   await page.getByLabel("Téléphone").fill("0550 12 34 56");
+  // The confirm bar is pinned to the bottom of the screen: scroll to the end of
+  // the form, as a person would, so the bar sits where it is drawn.
+  await page.getByLabel("Téléphone").press("Tab");
+  await page.mouse.wheel(0, 5000);
   await page.getByRole("button", { name: "Confirmer la réservation" }).click();
 
   // Booking page with the code and the stations.
