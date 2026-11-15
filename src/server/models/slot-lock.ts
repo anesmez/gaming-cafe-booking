@@ -23,7 +23,7 @@ const slotLockSchema = new Schema<SlotLockRecord>(
   { collection: "slotLocks" },
 );
 
-slotLockSchema.index({ resourceId: 1, slotStart: 1 }, { unique: true });
+slotLockSchema.index({ resourceId: 1, slotStart: 1 });
 slotLockSchema.index({ bookingId: 1 });
 
 export const SlotLock: Model<SlotLockRecord> =
