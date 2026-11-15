@@ -268,3 +268,163 @@ export function composeLanEmail(kind: LanEmailKind, input: LanEmailInput): Promi
     />,
   );
 }
+
+// ---------------------------------------------------------------------------
+// Reminders, changes, expiries and the owner's daily summary
+// ---------------------------------------------------------------------------
+
+export interface SimpleBooking {
+  code: string;
+  type: "station" | "venue" | "block";
+  start: Date;
+  end: Date;
+  customerName: string;
+}
+
+function when(d: Date, venue: VenueInfo, p = "EEEE d MMMM 'à' HH:mm") {
+  return formatInTimeZone(d, venue.timezone, p, { locale: fr });
+}
+
+function bookingRows(booking: SimpleBooking, venue: VenueInfo, stationNames: string[]) {
+  return [
+    { label: t("common.date"), value: when(booking.start, venue, "EEEE d MMMM yyyy") },
+    {
+      label: t("common.time"),
+      value: t("common.timeValue", { start: when(booking.start, venue, "HH:mm"), end: when(booking.end, venue, "HH:mm") }),
+    },
+    ...(stationNames.length > 0 && booking.type !== "venue" ? [{ label: t("common.stations"), value: stationNames.join(", ") }] : []),
+    { label: t("common.code"), value: booking.code },
+  ];
+}
+
+function notice(
+  to: string,
+  venue: VenueInfo,
+  c: { subject: string; heading: string; paragraphs: string[]; rows?: { label: string; value: string }[]; button?: { label: string; href: string }; note?: string },
+) {
+  return toMessage(
+    to,
+    c.subject,
+    <NoticeEmail
+      lang={LOCALE}
+      venueName={venue.venueName}
+      title={c.subject}
+      heading={c.heading}
+      paragraphs={c.paragraphs}
+      rows={c.rows}
+      button={c.button}
+      note={c.note}
+      footer={footer(venue)}
+    />,
+  );
+}
+
+export function composeReminder(input: {
+  to: string;
+  booking: SimpleBooking;
+  stationNames: string[];
+  venue: VenueInfo;
+  graceMinutes: number;
+  url: string;
+}): Promise<EmailMessage> {
+  const { booking, venue } = input;
+  const at = when(booking.start, venue);
+  const values = { name: booking.customerName, when: at, code: booking.code };
+  return notice(input.to, venue, {
+    subject: t("reminder.subject", { code: booking.code, when: at }),
+    heading: t("reminder.heading"),
+    paragraphs: [
+      booking.type === "venue" ? t("reminder.introLan", values) : t("reminder.intro", values),
+      ...(booking.type === "venue" ? [] : [t("reminder.arrival", { minutes: input.graceMinutes })]),
+    ],
+    rows: bookingRows(booking, venue, input.stationNames),
+    button: { label: t("common.manage"), href: input.url },
+    note: t("reminder.change"),
+  });
+}
+
+export function composeBookingChanged(
+  kind: "cancelled" | "moved" | "team",
+  input: {
+    to: string;
+    booking: SimpleBooking;
+    stationNames: string[];
+    venue: VenueInfo;
+    url: string;
+    /** cancelled: who cancelled. */
+    byCustomer?: boolean;
+    /** moved: the previous start and end. */
+    previous?: { start: Date; end: Date };
+  },
+): Promise<EmailMessage> {
+  const { booking, venue } = input;
+  const date = when(booking.start, venue);
+  const name = booking.customerName;
+  if (kind === "cancelled") {
+    return notice(input.to, venue, {
+      subject: t("changed.cancelled.subject", { code: booking.code }),
+      heading: t("changed.cancelled.heading"),
+      paragraphs: [input.byCustomer ? t("changed.cancelled.byCustomer", { name, date }) : t("changed.cancelled.byCafe", { name, date })],
+      button: { label: t("common.bookAgain"), href: input.url },
+    });
+  }
+  if (kind === "moved") {
+    const old = input.previous
+      ? `${when(input.previous.start, venue)} – ${when(input.previous.end, venue, "HH:mm")}`
+      : "";
+    return notice(input.to, venue, {
+      subject: t("changed.moved.subject", { code: booking.code }),
+      heading: t("changed.moved.heading"),
+      paragraphs: [t("changed.moved.intro", { name })],
+      rows: bookingRows(booking, venue, input.stationNames),
+      button: { label: t("common.manage"), href: input.url },
+      ...(old ? { note: t("changed.moved.before", { old }) } : {}),
+    });
+  }
+  return notice(input.to, venue, {
+    subject: t("changed.team.subject", { code: booking.code }),
+    heading: t("changed.team.heading"),
+    paragraphs: [t("changed.team.intro", { name, code: booking.code, date })],
+    rows: bookingRows(booking, venue, input.stationNames),
+    button: { label: t("changed.team.open"), href: input.url },
+  });
+}
+
+export function composeLanExpired(input: { to: string; booking: SimpleBooking; venue: VenueInfo; url: string }): Promise<EmailMessage> {
+  const { booking, venue } = input;
+  return notice(input.to, venue, {
+    subject: t("lanExpired.subject", { code: booking.code }),
+    heading: t("lanExpired.heading"),
+    paragraphs: [t("lanExpired.intro", { name: booking.customerName, date: when(booking.start, venue) }), t("lanExpired.other")],
+    button: { label: t("lanExpired.again"), href: input.url },
+  });
+}
+
+export function composeDailySummary(input: {
+  to: string;
+  date: Date;
+  open: boolean;
+  venue: VenueInfo;
+  bookings: (SimpleBooking & { stationNames: string[] })[];
+  pendingRequests: number;
+  url: string;
+}): Promise<EmailMessage> {
+  const { venue } = input;
+  return notice(input.to, venue, {
+    subject: t("summary.subject", { date: when(input.date, venue, "EEEE d MMMM") }),
+    heading: t("summary.heading"),
+    paragraphs: [
+      input.open ? t("summary.count", { count: input.bookings.length }) : t("summary.closed"),
+      ...(input.pendingRequests > 0 ? [t("summary.pending", { count: input.pendingRequests })] : []),
+    ],
+    rows: input.bookings.map((b) => ({
+      label: t("common.timeValue", { start: when(b.start, venue, "HH:mm"), end: when(b.end, venue, "HH:mm") }),
+      value: t("summary.row", {
+        name: b.customerName,
+        stations: b.type === "venue" ? t("summary.lan") : b.stationNames.join(", "),
+        code: b.code,
+      }),
+    })),
+    button: input.pendingRequests > 0 ? { label: t("summary.requests"), href: `${input.url}/requests` } : { label: t("summary.open"), href: input.url },
+  });
+}

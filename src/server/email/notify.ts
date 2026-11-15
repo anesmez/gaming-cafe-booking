@@ -5,7 +5,19 @@ import { EmailLog, type EmailTemplate } from "../models/email-log";
 import { Resource } from "../models/resource";
 import { Settings } from "../models/settings";
 import { User } from "../models/user";
-import { composeBookingConfirmed, composeLanEmail, composeLoginCode } from "./compose";
+import { businessDayWindow, isLocalDate } from "@/lib/booking";
+import { Booking } from "../models/booking";
+import {
+  composeBookingChanged,
+  composeBookingConfirmed,
+  composeDailySummary,
+  composeLanEmail,
+  composeLanExpired,
+  composeLoginCode,
+  composeReminder,
+  type SimpleBooking,
+  type VenueInfo,
+} from "./compose";
 import { defaultTransport, type EmailMessage, type EmailTransport } from "./transport";
 
 /**
@@ -26,7 +38,16 @@ export type NotifyEvent =
   | { type: "booking_confirmed"; booking: BookingRecord; manageToken: string }
   /** Sent to the customer and to every owner account. */
   | { type: "lan_requested"; booking: BookingRecord; manageToken: string }
-  | { type: "lan_decided"; booking: BookingRecord; decision: "approved" | "rejected"; note?: string };
+  | { type: "lan_decided"; booking: BookingRecord; decision: "approved" | "rejected"; note?: string }
+  /** The request ran out of time without an answer. */
+  | { type: "lan_expired"; booking: BookingRecord }
+  /** Sent once, 2 hours before a station booking and 24 hours before a LAN. */
+  | { type: "reminder"; booking: BookingRecord }
+  /** To the customer; also to the team when the customer cancelled. */
+  | { type: "booking_cancelled"; booking: BookingRecord; byCustomer: boolean }
+  | { type: "booking_moved"; booking: BookingRecord; previous: { start: Date; end: Date } }
+  /** To every owner account, once per business day. `date` is YYYY-MM-DD in the venue timezone. */
+  | { type: "daily_summary"; date: string };
 
 export type NotifyStatus = "sent" | "failed" | "skipped" | "rate_limited";
 
@@ -55,6 +76,16 @@ export async function notify(event: NotifyEvent, deps: NotifyDeps = {}): Promise
         return await sendLanRequested(event, now, deps.transport);
       case "lan_decided":
         return await sendLanDecided(event, now, deps.transport);
+      case "lan_expired":
+        return await sendLanExpired(event, now, deps.transport);
+      case "reminder":
+        return await sendReminder(event, now, deps.transport);
+      case "booking_cancelled":
+        return await sendCancelled(event, now, deps.transport);
+      case "booking_moved":
+        return await sendMoved(event, now, deps.transport);
+      case "daily_summary":
+        return await sendDailySummary(event, now, deps.transport);
     }
   } catch (error) {
     console.error(`notify(${event.type}) failed before sending:`, describe(error));
@@ -241,6 +272,193 @@ async function sendLanDecided(
       }),
     transport,
   );
+}
+
+async function venueContext(): Promise<{ venue: VenueInfo; graceMinutes: number; openingHours: { weekday: number; open: string; close: string }[] } | null> {
+  const settings = await Settings.findOne({ key: "default" }).lean();
+  if (!settings) return null;
+  return {
+    venue: { venueName: settings.venueName, address: settings.address ?? "", timezone: settings.timezone, currency: settings.currency },
+    graceMinutes: settings.graceMinutes,
+    openingHours: settings.openingHours.map((h) => ({ weekday: h.weekday, open: h.open, close: h.close })),
+  };
+}
+
+function simple(booking: BookingRecord): SimpleBooking {
+  return { code: booking.code, type: booking.type, start: booking.start, end: booking.end, customerName: booking.customer.name };
+}
+
+async function stationNames(ids: BookingRecord["resourceIds"]): Promise<string[]> {
+  const rows = await Resource.find({ _id: { $in: ids } }).select({ name: 1, sortOrder: 1 }).sort({ sortOrder: 1 }).lean();
+  return rows.map((r) => r.name);
+}
+
+async function sendLanExpired(event: Extract<NotifyEvent, { type: "lan_expired" }>, now: Date, transport?: EmailTransport): Promise<NotifyResult> {
+  const { booking } = event;
+  const to = booking.customer.email;
+  if (!to) return { status: "skipped", reason: "the booking has no email address" };
+  const ctx = await venueContext();
+  if (!ctx) return { status: "failed", reason: "settings are missing" };
+  return deliver(
+    { to, template: "lan_expired", requestedAt: now, bookingId: booking._id, dedupeKey: `lan_expired:${booking._id}` },
+    () => composeLanExpired({ to, booking: simple(booking), venue: ctx.venue, url: `${getAppUrl()}/book/lan` }),
+    transport,
+  );
+}
+
+async function sendReminder(event: Extract<NotifyEvent, { type: "reminder" }>, now: Date, transport?: EmailTransport): Promise<NotifyResult> {
+  const { booking } = event;
+  const to = booking.customer.email;
+  if (!to) return { status: "skipped", reason: "the booking has no email address" };
+  const [ctx, names] = await Promise.all([venueContext(), stationNames(booking.resourceIds)]);
+  if (!ctx) return { status: "failed", reason: "settings are missing" };
+  return deliver(
+    { to, template: "reminder", requestedAt: now, bookingId: booking._id, dedupeKey: `reminder:${booking._id}` },
+    () =>
+      composeReminder({
+        to,
+        booking: simple(booking),
+        stationNames: names,
+        venue: ctx.venue,
+        graceMinutes: ctx.graceMinutes,
+        url: `${getAppUrl()}/booking/${booking.code}`,
+      }),
+    transport,
+  );
+}
+
+async function sendCancelled(event: Extract<NotifyEvent, { type: "booking_cancelled" }>, now: Date, transport?: EmailTransport): Promise<NotifyResult> {
+  const { booking, byCustomer } = event;
+  const [ctx, names] = await Promise.all([venueContext(), stationNames(booking.resourceIds)]);
+  if (!ctx) return { status: "failed", reason: "settings are missing" };
+  const results: NotifyResult[] = [];
+  const to = booking.customer.email;
+  if (to) {
+    results.push(
+      await deliver(
+        { to, template: "booking_cancelled", requestedAt: now, bookingId: booking._id, dedupeKey: `booking_cancelled:${booking._id}` },
+        () =>
+          composeBookingChanged("cancelled", {
+            to,
+            booking: simple(booking),
+            stationNames: names,
+            venue: ctx.venue,
+            url: `${getAppUrl()}/book`,
+            byCustomer,
+          }),
+        transport,
+      ),
+    );
+  }
+  if (byCustomer) {
+    const team = await User.find({ role: { $in: ["owner", "staff"] } }).select({ email: 1 }).lean();
+    for (const member of team) {
+      results.push(
+        await deliver(
+          {
+            to: member.email,
+            template: "team_cancellation",
+            requestedAt: now,
+            bookingId: booking._id,
+            dedupeKey: `team_cancellation:${booking._id}:${member.email}`,
+          },
+          () =>
+            composeBookingChanged("team", {
+              to: member.email,
+              booking: simple(booking),
+              stationNames: names,
+              venue: ctx.venue,
+              url: `${getAppUrl()}/admin/bookings/${booking.code}`,
+            }),
+          transport,
+        ),
+      );
+    }
+  }
+  return summarise(results);
+}
+
+async function sendMoved(event: Extract<NotifyEvent, { type: "booking_moved" }>, now: Date, transport?: EmailTransport): Promise<NotifyResult> {
+  const { booking, previous } = event;
+  const to = booking.customer.email;
+  if (!to) return { status: "skipped", reason: "the booking has no email address" };
+  const [ctx, names] = await Promise.all([venueContext(), stationNames(booking.resourceIds)]);
+  if (!ctx) return { status: "failed", reason: "settings are missing" };
+  return deliver(
+    {
+      to,
+      template: "booking_moved",
+      requestedAt: now,
+      bookingId: booking._id,
+      // One email per move.
+      dedupeKey: `booking_moved:${booking._id}:${booking.history.length}`,
+    },
+    () =>
+      composeBookingChanged("moved", {
+        to,
+        booking: simple(booking),
+        stationNames: names,
+        venue: ctx.venue,
+        url: `${getAppUrl()}/booking/${booking.code}`,
+        previous,
+      }),
+    transport,
+  );
+}
+
+async function sendDailySummary(event: Extract<NotifyEvent, { type: "daily_summary" }>, now: Date, transport?: EmailTransport): Promise<NotifyResult> {
+  if (!isLocalDate(event.date)) return { status: "failed", reason: "date must be YYYY-MM-DD" };
+  const ctx = await venueContext();
+  if (!ctx) return { status: "failed", reason: "settings are missing" };
+  const day = businessDayWindow(event.date, ctx.openingHours, ctx.venue.timezone);
+
+  const [bookings, pendingRequests, owners] = await Promise.all([
+    day
+      ? Booking.find({
+          type: { $in: ["station", "venue"] },
+          status: { $in: ["confirmed", "checked_in", "pending_approval"] },
+          start: { $gte: day.open, $lt: day.close },
+        })
+          .sort({ start: 1 })
+          .lean<BookingRecord[]>()
+      : Promise.resolve([] as BookingRecord[]),
+    Booking.countDocuments({ type: "venue", status: "pending_approval" }),
+    User.find({ role: "owner" }).select({ email: 1 }).lean(),
+  ]);
+  const names = new Map(
+    (await Resource.find({ _id: { $in: bookings.flatMap((b) => b.resourceIds) } }).select({ name: 1, sortOrder: 1 }).lean()).map(
+      (r) => [String(r._id), { name: r.name, order: r.sortOrder }],
+    ),
+  );
+  const rows = bookings.map((b) => ({
+    ...simple(b),
+    stationNames: b.resourceIds
+      .map((id) => names.get(String(id)))
+      .filter((r): r is { name: string; order: number } => Boolean(r))
+      .sort((a, z) => a.order - z.order)
+      .map((r) => r.name),
+  }));
+
+  const results: NotifyResult[] = [];
+  for (const owner of owners) {
+    results.push(
+      await deliver(
+        { to: owner.email, template: "daily_summary", requestedAt: now, dedupeKey: `daily_summary:${event.date}:${owner.email}` },
+        () =>
+          composeDailySummary({
+            to: owner.email,
+            date: day?.open ?? new Date(`${event.date}T12:00:00Z`),
+            open: Boolean(day),
+            venue: ctx.venue,
+            bookings: rows,
+            pendingRequests,
+            url: `${getAppUrl()}/admin`,
+          }),
+        transport,
+      ),
+    );
+  }
+  return summarise(results);
 }
 
 /** Worst outcome of several sends wins; all skipped counts as skipped. */

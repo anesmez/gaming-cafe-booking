@@ -10,6 +10,7 @@ import {
   checkInBooking,
   completeBooking,
   createBooking,
+  getBookingByCode,
   markNoShow,
   moveBooking,
   rejectVenueBooking,
@@ -58,7 +59,8 @@ export async function bookingStatusAction(formData: FormData): Promise<void> {
   let target: string;
   try {
     const actor = await staffActor();
-    await STATUS_ACTIONS[action].run({ code, actor });
+    const booking = await STATUS_ACTIONS[action].run({ code, actor });
+    if (action === "cancel") await notify({ type: "booking_cancelled", booking, byCustomer: false });
     target = detailUrl(code, `done=${STATUS_ACTIONS[action].done}`);
   } catch (error) {
     target = detailUrl(code, `error=${errorCode(error)}`);
@@ -129,13 +131,18 @@ export async function moveStaffBookingAction(_prev: StaffFormState, formData: Fo
 
   try {
     const actor = await staffActor();
-    await moveBooking({
+    const before = await getBookingByCode(code.data);
+    const moved = await moveBooking({
       code: code.data,
       actor,
       start: parsed.data.start,
       end: addMinutes(parsed.data.start, parsed.data.durationMinutes),
       resourceIds: parsed.data.resourceIds,
     });
+    // The customer picks a time, not a PC: only a new time is worth an email.
+    if (moved.start.getTime() !== before.start.getTime() || moved.end.getTime() !== before.end.getTime()) {
+      await notify({ type: "booking_moved", booking: moved, previous: { start: before.start, end: before.end } });
+    }
   } catch (error) {
     return { error: errorCode(error) };
   }

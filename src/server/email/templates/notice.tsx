@@ -24,8 +24,8 @@ export function NoticeEmail({ lang, venueName, title, heading, paragraphs, rows,
       {rows && rows.length > 0 ? (
         <table role="presentation" cellPadding={0} cellSpacing={0} style={{ width: "100%", margin: "0 0 20px" }}>
           <tbody>
-            {rows.map((row) => (
-              <tr key={row.label}>
+            {rows.map((row, i) => (
+              <tr key={i}>
                 <td style={{ ...emailStyles.label, borderTop: `1px solid ${emailStyles.line}` }}>{row.label}</td>
                 <td style={{ ...emailStyles.value, borderTop: `1px solid ${emailStyles.line}` }}>{row.value}</td>
               </tr>

@@ -706,6 +706,26 @@ export async function expireStaleRequests(now: Date = new Date()): Promise<Booki
 }
 
 /** Pending LAN requests, oldest first, for the owner. */
+/**
+ * The end time of a checked-in session has passed: checked_in → completed, by
+ * the system. Run by the cron tick. Bookings never checked in are left for
+ * staff to mark as no-show or check in late; nobody guesses for them.
+ */
+export async function completeEndedSessions(now: Date = new Date()): Promise<BookingRecord[]> {
+  await ready();
+  const ended = await Booking.find({ status: "checked_in", end: { $lte: now } }).lean<BookingRecord[]>();
+  const done: BookingRecord[] = [];
+  for (const booking of ended) {
+    try {
+      await setStatus(booking, "completed", { actor: "system", note: "end time passed" }, now, { releaseLocks: true });
+      done.push(booking);
+    } catch (error) {
+      if (!(error instanceof BookingError && error.code === "INVALID_STATE")) throw error;
+    }
+  }
+  return done;
+}
+
 export async function listPendingRequests(now: Date = new Date()) {
   await ready();
   await expireStaleRequests(now);

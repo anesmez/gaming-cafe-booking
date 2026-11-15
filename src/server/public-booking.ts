@@ -244,7 +244,7 @@ export async function cancelManagedBooking(
   if (!managed) return { ok: false, error: "NOT_FOUND" };
 
   try {
-    await cancelBooking(
+    const cancelled = await cancelBooking(
       {
         code,
         actor:
@@ -254,6 +254,7 @@ export async function cancelManagedBooking(
       },
       { now },
     );
+    await notify({ type: "booking_cancelled", booking: cancelled, byCustomer: managed.access !== "staff" });
     return { ok: true };
   } catch (error) {
     if (error instanceof BookingError) return { ok: false, error: error.code };

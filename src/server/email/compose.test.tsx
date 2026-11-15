@@ -1,6 +1,16 @@
 import { describe, expect, it } from "vitest";
 import { algiers } from "@/lib/booking/fixtures";
-import { composeBookingConfirmed, composeLanEmail, composeLoginCode, currencyLabel, type BookingEmailInput } from "./compose";
+import {
+  composeBookingChanged,
+  composeBookingConfirmed,
+  composeDailySummary,
+  composeLanEmail,
+  composeLanExpired,
+  composeLoginCode,
+  composeReminder,
+  currencyLabel,
+  type BookingEmailInput,
+} from "./compose";
 
 const venue = {
   venueName: "Respawn Cyber Gaming",
@@ -163,5 +173,69 @@ describe("composeLanEmail", () => {
     const email = await composeLanEmail("rejected", input);
     expect(email.subject).toBe("Demande de LAN refusée · GC-LAN1");
     expect(email.text).toContain("libérée");
+  });
+});
+
+describe("jobs and change emails", () => {
+  const booking = {
+    code: "GC-7K2F",
+    type: "station" as const,
+    start: algiers("2026-12-04", "18:00"),
+    end: algiers("2026-12-04", "20:00"),
+    customerName: "Yanis",
+  };
+
+  it("reminds with the time, the stations and the code", async () => {
+    const email = await composeReminder({ to: "y@example.com", booking, stationNames: ["PC 01", "PC 02"], venue, graceMinutes: 15, url: "https://x/booking/GC-7K2F" });
+    expect(email.subject).toBe("Rappel · GC-7K2F, vendredi 4 décembre à 18:00");
+    expect(email.text).toContain("PC 01, PC 02");
+    expect(email.text).toContain("15 minutes");
+    const lan = await composeReminder({ to: "y@example.com", booking: { ...booking, type: "venue" }, stationNames: ["PC 01"], venue, graceMinutes: 15, url: "https://x" });
+    expect(lan.text).toContain("votre LAN commence");
+    expect(lan.text).not.toContain("PC 01");
+  });
+
+  it("says who cancelled, and shows the old time after a move", async () => {
+    const byCustomer = await composeBookingChanged("cancelled", { to: "y@example.com", booking, stationNames: [], venue, url: "https://x/book", byCustomer: true });
+    expect(byCustomer.text).toContain("est bien annulée");
+    const byCafe = await composeBookingChanged("cancelled", { to: "y@example.com", booking, stationNames: [], venue, url: "https://x/book", byCustomer: false });
+    expect(byCafe.text).toContain("l'équipe a annulé");
+    const moved = await composeBookingChanged("moved", {
+      to: "y@example.com",
+      booking,
+      stationNames: ["PC 03"],
+      venue,
+      url: "https://x",
+      previous: { start: algiers("2026-12-04", "16:00"), end: algiers("2026-12-04", "18:00") },
+    });
+    expect(moved.subject).toBe("Réservation modifiée · GC-7K2F");
+    expect(moved.text).toContain("Avant : vendredi 4 décembre à 16:00 – 18:00.");
+    const team = await composeBookingChanged("team", { to: "owner@example.com", booking, stationNames: ["PC 03"], venue, url: "https://x/admin" });
+    expect(team.text).toContain("Yanis a annulé sa réservation GC-7K2F");
+  });
+
+  it("tells a group their request expired", async () => {
+    const email = await composeLanExpired({ to: "g@example.com", booking: { ...booking, type: "venue" }, venue, url: "https://x/book/lan" });
+    expect(email.subject).toBe("Demande de LAN expirée · GC-7K2F");
+  });
+
+  it("lists the day for the owner, and points to pending requests", async () => {
+    const email = await composeDailySummary({
+      to: "owner@example.com",
+      date: algiers("2026-12-04", "16:00"),
+      open: true,
+      venue,
+      bookings: [{ ...booking, stationNames: ["PC 01"] }, { ...booking, code: "GC-LAN1", type: "venue", stationNames: [] }],
+      pendingRequests: 1,
+      url: "https://x/admin",
+    });
+    expect(email.subject).toBe("Programme du vendredi 4 décembre");
+    expect(email.text).toContain("2 réservations aujourd'hui.");
+    expect(email.text).toContain("Yanis · PC 01 · GC-7K2F");
+    expect(email.text).toContain("Yanis · LAN · GC-LAN1");
+    expect(email.text).toContain("1 demande de LAN attend votre réponse.");
+    expect(email.html).toContain("https://x/admin/requests");
+    const closed = await composeDailySummary({ to: "o@example.com", date: algiers("2026-12-04", "12:00"), open: false, venue, bookings: [], pendingRequests: 0, url: "https://x/admin" });
+    expect(closed.text).toContain("fermé aujourd'hui");
   });
 });

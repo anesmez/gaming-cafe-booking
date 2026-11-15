@@ -8,7 +8,7 @@
   "home": {
     "eyebrow": "Réservation en ligne",
     "headline": "Votre poste est réservé, sans appel ni message.",
-    "lead": "Choisissez un créneau libre, recevez la confirmation par e-mail et présentez votre code à l'accueil.",
+    "lead": "Choisissez un créneau libre, recevez la confirmation par e-mail et présentez votre code au comptoir.",
     "bookSoon": "Réservation bientôt disponible",
     "payOnSite": "Paiement sur place, en espèces.",
     "offers": {
@@ -36,7 +36,7 @@
       "pc": "PC : à partir de {price} {currency} l'heure",
       "console": "PS5 : {price} {currency} l'heure",
       "lan": "LAN : prix sur devis",
-      "noPrices": "Tarifs à l'accueil."
+      "noPrices": "Tarifs au comptoir."
     }
   },
   "login": {
@@ -90,7 +90,7 @@
     "closedDay": "Fermé ce jour-là.",
     "now": "Maintenant",
     "free": "Libre",
-    "walkIn": "accueil",
+    "walkIn": "sur place",
     "legend": {
       "confirmed": "Réservé",
       "checked_in": "En cours",
@@ -211,7 +211,7 @@
     },
     "pendingRequest": "Demande de LAN en attente de réponse.",
     "answerRequest": "Répondre à la demande",
-    "ownerOnly": "Cette page est réservée au propriétaire.",
+    "ownerOnly": "Cette page est réservée au gérant.",
     "settings": {
       "title": "Réglages",
       "lead": "Les changements s'appliquent tout de suite aux nouvelles réservations. Les réservations déjà faites gardent leurs horaires.",
@@ -299,7 +299,7 @@
       "add": "Ajouter à l'équipe",
       "remove": "Retirer",
       "roles": {
-        "owner": "Propriétaire",
+        "owner": "Gérant",
         "staff": "Équipe"
       },
       "done": {
@@ -368,7 +368,7 @@
     "bookingConfirmed": {
       "subject": "Réservation confirmée · {code}",
       "heading": "Votre réservation est confirmée",
-      "intro": "Bonjour {name}, votre créneau est réservé. Présentez ce code à l'accueil :",
+      "intro": "Bonjour {name}, votre créneau est réservé. Présentez ce code au comptoir :",
       "codeLabel": "Code de réservation",
       "date": "Date",
       "time": "Horaire",
@@ -411,7 +411,7 @@
       "approved": {
         "subject": "LAN confirmée · {code}",
         "heading": "Votre LAN est confirmée",
-        "intro": "Bonjour {name}, le gérant a accepté votre demande. Toute la salle est à vous. Présentez le code {code} à l'accueil."
+        "intro": "Bonjour {name}, le gérant a accepté votre demande. Toute la salle est à vous. Présentez le code {code} au comptoir."
       },
       "rejected": {
         "subject": "Demande de LAN refusée · {code}",
@@ -420,6 +420,61 @@
         "other": "Vous pouvez faire une nouvelle demande pour une autre date ou nous contacter."
       },
       "ownerNote": "Message du gérant : {note}"
+    },
+    "common": {
+      "date": "Date",
+      "time": "Horaire",
+      "stations": "Postes",
+      "code": "Code",
+      "timeValue": "{start} – {end}",
+      "manage": "Voir ma réservation",
+      "bookAgain": "Réserver un autre créneau"
+    },
+    "reminder": {
+      "subject": "Rappel · {code}, {when}",
+      "heading": "Petit rappel avant votre venue",
+      "intro": "Bonjour {name}, votre réservation commence {when}. Présentez le code {code} au comptoir.",
+      "introLan": "Bonjour {name}, votre LAN commence {when}. Toute la salle est à vous. Présentez le code {code} au comptoir.",
+      "arrival": "Votre poste est gardé {minutes} minutes après l'heure de début.",
+      "change": "Un empêchement ? Annulez depuis votre réservation tant que c'est possible, sinon prévenez-nous."
+    },
+    "changed": {
+      "cancelled": {
+        "subject": "Réservation annulée · {code}",
+        "heading": "Votre réservation est annulée",
+        "byCustomer": "Bonjour {name}, votre réservation du {date} est bien annulée. Le créneau est libéré.",
+        "byCafe": "Bonjour {name}, l'équipe a annulé votre réservation du {date}. Pour toute question, contactez-nous."
+      },
+      "moved": {
+        "subject": "Réservation modifiée · {code}",
+        "heading": "Votre réservation a changé",
+        "intro": "Bonjour {name}, l'équipe a modifié votre réservation. Voici les nouveaux horaires.",
+        "before": "Avant : {old}."
+      },
+      "team": {
+        "subject": "Annulation client · {code}",
+        "heading": "Un client a annulé",
+        "intro": "{name} a annulé sa réservation {code} du {date}. Les postes sont libérés.",
+        "open": "Voir la réservation"
+      }
+    },
+    "lanExpired": {
+      "subject": "Demande de LAN expirée · {code}",
+      "heading": "Votre demande de LAN a expiré",
+      "intro": "Bonjour {name}, le gérant n'a pas pu répondre à temps à votre demande du {date}. La salle a été libérée.",
+      "other": "Vous pouvez faire une nouvelle demande ou nous appeler.",
+      "again": "Faire une nouvelle demande"
+    },
+    "summary": {
+      "subject": "Programme du {date}",
+      "heading": "Le programme d'aujourd'hui",
+      "count": "{count, plural, =0 {Aucune réservation aujourd'hui pour l'instant.} one {# réservation aujourd'hui.} other {# réservations aujourd'hui.}}",
+      "closed": "Le café est fermé aujourd'hui.",
+      "pending": "{count, plural, one {# demande de LAN attend votre réponse.} other {# demandes de LAN attendent votre réponse.}}",
+      "row": "{name} · {stations} · {code}",
+      "lan": "LAN",
+      "open": "Ouvrir le planning",
+      "requests": "Répondre aux demandes"
     }
   },
   "book": {
@@ -428,7 +483,7 @@
     "loginTitle": "Connectez-vous pour réserver",
     "loginLead": "Un code à 6 chiffres suffit, pas de mot de passe. Vous restez connecté 90 jours sur cet appareil.",
     "loginCta": "Recevoir mon code",
-    "unavailable": "La réservation en ligne est indisponible pour le moment. Appelez-nous ou passez à l'accueil.",
+    "unavailable": "La réservation en ligne est indisponible pour le moment. Appelez-nous ou passez au comptoir.",
     "what": "Quoi ?",
     "types": {
       "pc": "PC gaming",
@@ -458,10 +513,10 @@
     "errors": {
       "SLOT_TAKEN": "Ce créneau vient d'être pris. Choisissez-en un autre.",
       "OUTSIDE_HOURS": "Ce créneau est en dehors des horaires d'ouverture.",
-      "TOO_SOON": "Ce créneau commence trop tôt. Réservez au moins 30 minutes à l'avance.",
+      "TOO_SOON": "Ce créneau commence trop tôt pour être réservé en ligne. Choisissez-en un plus tard.",
       "TOO_FAR": "Ce créneau est trop loin dans le temps.",
-      "LIMIT_REACHED": "Vous avez déjà 2 réservations à venir. Annulez-en une pour en faire une autre.",
-      "BLOCKED": "La réservation en ligne n'est pas disponible pour votre compte. Contactez l'accueil.",
+      "LIMIT_REACHED": "Vous avez atteint le nombre maximum de réservations à venir. Annulez-en une pour en faire une autre.",
+      "BLOCKED": "La réservation en ligne n'est pas disponible pour votre compte. Contactez-nous.",
       "INVALID_DURATION": "Cette durée n'est pas proposée.",
       "TOO_MANY_STATIONS": "Trop de postes pour une seule réservation.",
       "INVALID_INPUT": "Vérifiez votre nom et votre numéro de téléphone.",
@@ -477,7 +532,7 @@
     "notFoundLead": "Ce lien n'est pas valide ou a expiré. Vérifiez l'e-mail de confirmation, ou connectez-vous avec l'adresse utilisée pour réserver.",
     "login": "Se connecter",
     "justBooked": "C'est réservé. Un e-mail de confirmation est en route.",
-    "codeLabel": "Code à présenter à l'accueil",
+    "codeLabel": "Code à présenter au comptoir",
     "status": {
       "pending_approval": "En attente de validation",
       "confirmed": "Confirmée",
@@ -499,12 +554,12 @@
     "cancel": "Annuler la réservation",
     "cancelling": "Annulation…",
     "cancelUntil": "Annulation en ligne possible jusqu'au {date}.",
-    "cancelClosed": "L'annulation en ligne n'est plus possible. Appelez l'accueil.",
+    "cancelClosed": "L'annulation en ligne n'est plus possible. Appelez-nous.",
     "cancelled": "Réservation annulée. Le créneau est libéré.",
-    "cancelError": "L'annulation n'a pas pu être faite. Réessayez ou appelez l'accueil.",
+    "cancelError": "L'annulation n'a pas pu être faite. Réessayez ou appelez-nous.",
     "bookAgain": "Faire une autre réservation",
     "home": "Retour à l'accueil",
-    "pendingNotice": "Demande envoyée. La salle est bloquée pour vous jusqu'à la réponse du gérant, par e-mail.",
+    "pendingNotice": "Demande envoyée. La salle est bloquée pour vous jusqu'à la réponse du gérant, que vous recevrez par e-mail.",
     "quoted": "Prix convenu",
     "partySize": "Groupe",
     "partySizeValue": "{count} personnes"

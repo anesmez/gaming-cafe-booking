@@ -215,7 +215,7 @@ async function createBooking(input) {
 - **LAN booking** inserts locks for every active station and the PS5 across the range plus the cleanup buffer.
 - **Statuses that hold locks:** `pending_approval`, `confirmed`, `checked_in`. Moving to `cancelled`, `rejected`, `expired` or `no_show` deletes all of the booking's locks in the same transaction as the status change, so a lock always belongs to a booking that still holds its slots.
 - **Moving a booking** deletes the old locks and inserts the new ones in one transaction.
-- **Cleanup:** a nightly job deletes locks older than 30 days.
+- **Cleanup:** none. Locks are deleted when their booking leaves a holding status; a past lock blocks nothing, and deleting it while its booking is still `confirmed` would break the rule above. At this café's volume the collection stays far below the free tier's storage.
 - **Slot size is fixed at 30 minutes** once live. Changing it needs a migration of existing locks.
 
 Required test before any UI work: 50 parallel requests for the same station and slot produce exactly one booking and 49 `SLOT_TAKEN` errors.
@@ -231,7 +231,7 @@ One Next.js app on Vercel serves the public site, the dashboard and the API. Mon
 | Database | MongoDB Atlas free cluster, Mongoose | 0.5 GB storage, 100 operations per second, 3-node replica set, optional daily backups ([limits](https://www.mongodb.com/docs/atlas/reference/free-shared-limitations/)) |
 | Auth | Better Auth with its email one-time-code plugin and [MongoDB adapter](https://better-auth.com/docs/adapters/mongo) | No passwords; role stored on `users` |
 | Email | Resend, React Email | Free plan: 3,000 emails a month, 100 a day ([pricing](https://resend.com/docs/knowledge-base/what-is-resend-pricing)) |
-| Scheduled jobs | Vercel Cron, every 15 minutes | Reminders, request expiry, auto-complete, lock cleanup |
+| Scheduled jobs | GitHub Actions every 30 minutes during opening hours, plus Vercel Cron once a day | Reminders, request expiry and its email, auto-complete, the owner's 09:00 summary |
 | Validation | zod | On every server input |
 | Dates | date-fns, date-fns-tz | Venue timezone from settings |
 | i18n | next-intl | French first |
@@ -309,7 +309,14 @@ Eight milestones, one per Claude Code session, each ending with passing tests an
 5. **Dashboard.** Today grid, calendar, new booking, bookings list, check-in, no-show, move, cancel. Done when staff can run a full day without the database console.
 6. **LAN requests.** Request form, slot hold, approve and reject, 24-hour expiry. Done when a pending request blocks station bookings and an expired one frees them.
 7. **Settings.** Opening hours, rules, closures, stations, staff accounts, customers and blocklist. Done when the owner can change every default in this spec without a deploy.
-8. **Jobs and launch.** Cron tick, daily summary, French copy review, custom domain and sender domain, existing bookings entered by hand. Done when the café takes its first real booking.
+8. **Jobs and launch.** Cron tick, daily summary, French copy review, existing bookings entered by hand. Done when the café takes its first real booking.
+
+## Launch decisions
+
+- **No domain.** None can be bought, so the site lives at `https://gaming-cafe-booking-ten.vercel.app` and email goes out from the café's Gmail address (`GMAIL_USER` + `GMAIL_APP_PASSWORD`). Gmail allows about 500 messages a day, well above this café's needs. A domain can be added later without code changes: set it on Vercel and point `APP_URL` at it.
+- **Scheduler.** Vercel's free plan runs a cron job once a day, too rarely for 2-hour reminders. `.github/workflows/tick.yml` calls `GET /api/cron/tick` every 30 minutes from 14:00 to 04:30 Algiers time and at 09:05; `vercel.json` adds a daily 09:00 call as a fallback, since GitHub pauses scheduled workflows in a repository with no activity for 60 days. Both send `Authorization: Bearer $CRON_SECRET`; the secret is set on Vercel and as a GitHub repository secret.
+- **Never-checked-in bookings** stay `confirmed` after they end. Staff mark them no-show or check them in late; the system does not guess.
+- **Emails added in this milestone:** reminder (2 h before, LAN 24 h), cancelled (to the customer, and to the team when the customer cancels), moved (only when the time changes), LAN request expired, and the owner's daily summary.
 
 ## Open questions for the owner
 

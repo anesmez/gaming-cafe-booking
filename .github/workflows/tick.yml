@@ -1,0 +1,30 @@
+name: Cron tick
+
+# Vercel's free plan runs a cron job once a day at most, so the frequent tick
+# (reminders, LAN expiry, auto-complete) runs from here. Times are UTC;
+# Algiers is UTC+1. The café opens 16:00–04:00, so the tick runs every 30
+# minutes from 14:00 to 04:30 local time, plus 09:05 for the owner's summary.
+on:
+  schedule:
+    - cron: "*/30 13-23 * * *"
+    - cron: "*/30 0-3 * * *"
+    - cron: "5 8 * * *"
+  workflow_dispatch:
+
+jobs:
+  tick:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Call /api/cron/tick
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          APP_URL: https://gaming-cafe-booking-ten.vercel.app
+        run: |
+          if [ -z "$CRON_SECRET" ]; then
+            echo "::warning::CRON_SECRET is not set in the repository secrets; skipping."
+            exit 0
+          fi
+          curl --fail-with-body --silent --show-error --max-time 60 \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            "$APP_URL/api/cron/tick"

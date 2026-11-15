@@ -7,6 +7,12 @@ export const EMAIL_TEMPLATES = [
   "lan_request_owner",
   "lan_approved",
   "lan_rejected",
+  "lan_expired",
+  "reminder",
+  "booking_cancelled",
+  "booking_moved",
+  "team_cancellation",
+  "daily_summary",
 ] as const;
 export type EmailTemplate = (typeof EMAIL_TEMPLATES)[number];
 
