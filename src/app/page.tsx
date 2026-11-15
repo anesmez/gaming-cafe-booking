@@ -2,8 +2,10 @@ import { Gamepad2, Monitor, Users } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
+import { Suspense } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { VenueInfo } from "./_components/venue-info";
 
 const OFFERS = [
   { key: "pc", icon: Monitor },
@@ -54,6 +56,10 @@ export default function HomePage() {
           </Card>
         ))}
       </section>
+
+      <Suspense fallback={<div className="h-56 rounded-lg border border-border" aria-hidden />}>
+        <VenueInfo />
+      </Suspense>
 
       <footer className="mt-auto flex flex-wrap items-center justify-between gap-2 text-sm text-muted-foreground">
         <span>{t("home.payOnSite")}</span>

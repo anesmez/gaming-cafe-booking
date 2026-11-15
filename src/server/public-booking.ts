@@ -46,6 +46,16 @@ export async function getPublicSettings(): Promise<PublicSettings | null> {
   };
 }
 
+/** Starting hourly price per resource type, for the home page. Types with no price set are left out. */
+export async function getPublicPrices(): Promise<Partial<Record<(typeof RESOURCE_TYPES)[number], number>>> {
+  await connectDb();
+  const rows = await Resource.aggregate<{ _id: (typeof RESOURCE_TYPES)[number]; from: number }>([
+    { $match: { active: true, hourlyRate: { $gt: 0 } } },
+    { $group: { _id: "$type", from: { $min: "$hourlyRate" } } },
+  ]);
+  return Object.fromEntries(rows.map((r) => [r._id, r.from]));
+}
+
 const placeSchema = z.object({
   resourceType: z.enum(RESOURCE_TYPES),
   start: z.iso.datetime().transform((v) => new Date(v)),

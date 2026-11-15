@@ -10,6 +10,8 @@ import {
   assertCancellable,
   assertCustomerMayBook,
   businessDayWindow,
+  closureSlots,
+  closureWindows,
   estimatePrice,
   expandSlots,
   generateBookingCode,
@@ -262,6 +264,7 @@ export async function cancelBooking(raw: CancelBookingInput, clock: Clock = {}):
   await ready();
   const settings = await loadSettings();
   const booking = await findByCode(input.code);
+  assertNotClosure(booking);
 
   assertCancellable(booking, kindOf(input.actor), settings, now);
 
@@ -459,6 +462,7 @@ export async function checkInBooking(raw: StaffActionInput, clock: Clock = {}): 
   await ready();
 
   const booking = await findByCode(input.code);
+  assertNotClosure(booking);
   if (booking.status !== "confirmed") {
     throw new BookingError("INVALID_STATE", `a ${booking.status} booking cannot be checked in`);
   }
@@ -483,6 +487,7 @@ export async function markNoShow(raw: StaffActionInput, clock: Clock = {}): Prom
   const settings = await loadSettings();
 
   const booking = await findByCode(input.code);
+  assertNotClosure(booking);
   if (booking.status !== "confirmed") {
     throw new BookingError("INVALID_STATE", `a ${booking.status} booking cannot be marked as no-show`);
   }
@@ -554,6 +559,15 @@ async function setStatus(
     if (options.releaseLocks) await SlotLock.deleteMany({ bookingId: booking._id }, { session });
     await options.extra?.(session);
   });
+}
+
+/** Closures are removed with removeClosure, never cancelled or checked in like a booking. */
+function assertNotClosure(booking: BookingRecord): void {
+  if (booking.type === "block") throw new BookingError("INVALID_STATE", "a closure is not a booking");
+}
+
+function requireOwner(actor: Actor): void {
+  if (actor.role !== "owner") throw new BookingError("FORBIDDEN", "owner only");
 }
 
 function requireStaff(actor: Actor): void {
@@ -706,6 +720,213 @@ export async function listPendingRequests(now: Date = new Date()) {
     requestedAt: b.history[0]?.at ?? b.createdAt,
     expiresAt: addMinutes(b.history[0]?.at ?? b.createdAt, settings.venue.approvalTimeoutHours * 60),
   }));
+}
+
+// ---------------------------------------------------------------------------
+// Closures (owner only)
+// ---------------------------------------------------------------------------
+
+const closureSchema = z.object({
+  actor: actorSchema,
+  from: z.string(),
+  to: z.string(),
+  /** One station, or the whole venue when omitted. */
+  resourceId: objectId.optional(),
+  reason: z.string().trim().min(2).max(80),
+});
+export type ClosureInput = z.input<typeof closureSchema>;
+
+/**
+ * Blocks whole business days, for the venue or one station: a booking of type
+ * "block" that locks every opening slot in the range. It goes through the same
+ * unique index as everything else, so it cannot be placed over a booking:
+ * move or cancel those first (SLOT_TAKEN). Days the venue is shut anyway are
+ * skipped.
+ */
+export async function createClosure(
+  raw: ClosureInput,
+  clock: Clock = {},
+): Promise<BookingRecord> {
+  const input = parse(closureSchema, raw);
+  const now = clock.now ?? new Date();
+  requireOwner(input.actor);
+
+  await ready();
+  const settings = await loadSettings();
+  const windows = closureWindows(input.from, input.to, settings);
+  const slots = closureSlots(windows, settings.slotMinutes).filter(
+    (slot) => slot >= floorSlot(now, settings),
+  );
+  if (slots.length === 0)
+    throw new BookingError(
+      "OUTSIDE_HOURS",
+      "the venue is not open on any of these days",
+    );
+  await expireStaleRequests(now);
+
+  const resources = await Resource.find(
+    input.resourceId
+      ? { _id: input.resourceId, active: true }
+      : { active: true },
+  )
+    .select({ hourlyRate: 1 })
+    .lean();
+  if (resources.length === 0)
+    throw new BookingError("NOT_FOUND", "no such active station");
+
+  const { booking } = await insertBooking(
+    {
+      type: "block",
+      start: slots[0],
+      end: windows[windows.length - 1].close,
+      slots,
+      customer: { name: input.reason, phone: "-" },
+      source: "walkin",
+      by: actorLabel(input.actor),
+      now,
+    },
+    resources.map((r) => ({ _id: r._id, hourlyRate: 0 })),
+    settings,
+  );
+  return booking;
+}
+
+/** Opens the days again. */
+export async function removeClosure(
+  raw: { code: string; actor: Actor },
+  clock: Clock = {},
+): Promise<BookingRecord> {
+  const input = parse(staffActionSchema, raw);
+  const now = clock.now ?? new Date();
+  requireOwner(input.actor);
+  await ready();
+  const booking = await findByCode(input.code);
+  if (booking.type !== "block" || booking.status !== "confirmed") {
+    throw new BookingError("INVALID_STATE", "not an active closure");
+  }
+  await setStatus(booking, "cancelled", input, now, { releaseLocks: true });
+  return findByCode(input.code);
+}
+
+export interface ClosureSummary {
+  code: string;
+  reason: string;
+  start: Date;
+  end: Date;
+  /** Station names, or null for the whole venue. */
+  stations: string[] | null;
+}
+
+/** Closures that have not ended yet, soonest first. */
+export async function listClosures(
+  now: Date = new Date(),
+): Promise<ClosureSummary[]> {
+  await ready();
+  const closures = await Booking.find({
+    type: "block",
+    status: "confirmed",
+    end: { $gt: now },
+  })
+    .sort({ start: 1 })
+    .lean<BookingRecord[]>();
+  const names = new Map(
+    (
+      await Resource.find({
+        _id: { $in: closures.flatMap((c) => c.resourceIds) },
+      })
+        .select({ name: 1 })
+        .lean()
+    ).map((r) => [String(r._id), r.name]),
+  );
+  return closures.map((c) => ({
+    code: c.code,
+    reason: c.customer.name,
+    start: c.start,
+    end: c.end,
+    // A station closure holds exactly one station; a venue closure holds them all.
+    stations:
+      c.resourceIds.length > 1
+        ? null
+        : c.resourceIds.map((id) => names.get(String(id)) ?? "?"),
+  }));
+}
+
+function floorSlot(now: Date, settings: BookingSettings): Date {
+  const ms = settings.slotMinutes * 60_000;
+  return new Date(Math.floor(now.getTime() / ms) * ms);
+}
+
+// ---------------------------------------------------------------------------
+// Customers
+// ---------------------------------------------------------------------------
+
+/**
+ * Owner only. Deletes a customer: their upcoming bookings are cancelled (slots
+ * freed), every booking keeps its dates but loses the name, phone and email,
+ * and the account, its sessions and logins go. One transaction.
+ */
+export async function deleteCustomer(
+  raw: { userId: string; actor: Actor },
+  clock: Clock = {},
+): Promise<void> {
+  const input = parse(z.object({ userId: objectId, actor: actorSchema }), raw);
+  const now = clock.now ?? new Date();
+  requireOwner(input.actor);
+  await ready();
+
+  const user = await User.findById(input.userId).lean();
+  if (!user) throw new BookingError("NOT_FOUND", "no such customer");
+  if (user.role !== "customer")
+    throw new BookingError("FORBIDDEN", "remove the staff role first");
+
+  const mine = {
+    $or: [{ "customer.userId": user._id }, { "customer.email": user.email }],
+  };
+  await transaction(async (session) => {
+    const holding = await Booking.find({
+      ...mine,
+      status: { $in: LOCK_HOLDING_STATUSES },
+    })
+      .select({ _id: 1, status: 1 })
+      .session(session)
+      .lean();
+    for (const b of holding) {
+      await Booking.updateOne(
+        { _id: b._id },
+        {
+          $set: { status: "cancelled" },
+          $push: {
+            history: {
+              at: now,
+              by: actorLabel(input.actor),
+              from: b.status,
+              to: "cancelled",
+              note: "customer deleted",
+            },
+          },
+        },
+        { session },
+      );
+    }
+    await SlotLock.deleteMany(
+      { bookingId: { $in: holding.map((b) => b._id) } },
+      { session },
+    );
+    await Booking.updateMany(
+      mine,
+      {
+        $set: { "customer.name": "Client supprimé", "customer.phone": "-" },
+        $unset: { "customer.email": "", "customer.userId": "" },
+      },
+      { session },
+    );
+    const db = mongoose.connection.db!;
+    // The auth library may store the user id as an ObjectId or as a string.
+    const ids = { userId: { $in: [user._id, String(user._id)] } };
+    await db.collection("sessions").deleteMany(ids, { session });
+    await db.collection("accounts").deleteMany(ids, { session });
+    await User.deleteOne({ _id: user._id }, { session });
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -910,6 +1131,8 @@ interface BookingDraft {
   status?: BookingRecord["status"];
   /** Locks run until here, e.g. to cover the cleanup after a LAN. */
   lockUntil?: Date;
+  /** Exact slots to lock, for closures that skip the hours the venue is shut. */
+  slots?: Date[];
 }
 
 const MAX_CODE_ATTEMPTS = 5;
@@ -922,7 +1145,7 @@ async function insertBooking(
   stations: { _id: Types.ObjectId; hourlyRate: number }[],
   settings: BookingSettings,
 ): Promise<CreatedBooking> {
-  const slots = expandSlots(draft.start, draft.lockUntil ?? draft.end, settings.slotMinutes);
+  const slots = draft.slots ?? expandSlots(draft.start, draft.lockUntil ?? draft.end, settings.slotMinutes);
   const manageToken = randomBytes(32).toString("base64url");
   const type = draft.type ?? "station";
   const status = draft.status ?? "confirmed";

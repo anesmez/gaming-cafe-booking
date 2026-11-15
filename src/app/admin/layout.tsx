@@ -11,6 +11,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     { href: "/admin/requests", label: t("admin.nav.requests") },
     { href: "/admin/bookings", label: t("admin.nav.bookings") },
     { href: "/admin/bookings/new", label: t("admin.nav.new") },
+    { href: "/admin/customers", label: t("admin.nav.customers") },
+    { href: "/admin/settings", label: t("admin.nav.settings") },
   ];
   return (
     <div className="flex min-h-full flex-1 flex-col">

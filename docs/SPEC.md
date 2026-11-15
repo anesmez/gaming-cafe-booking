@@ -66,7 +66,7 @@ Every value below is a setting, shown with its default:
 - **Grace period:** a station is held 15 minutes past the start time. Then staff can mark a no-show, which frees the remaining slots.
 - **No-shows:** after 3, the customer cannot book online until staff unblock them.
 - **Walk-in protection:** each station has a `bookableOnline` flag. Start with half the PCs bookable online and the rest walk-in only. Staff can book any station.
-- **Closures:** the owner can block a date range for the whole venue or one station (holiday, broken PC).
+- **Closures:** the owner can block whole business days, up to 62 at a time, for the whole venue or one station (holiday, broken PC). A closure is a `block` booking with its own slot locks, so it cannot be placed over an existing booking.
 - **LAN buffer:** 30 minutes blocked after a LAN booking for cleanup.
 
 Conflict rules, enforced by the database and not by the UI:
@@ -120,7 +120,7 @@ The dashboard opens on today's timeline, because that is what the counter needs 
 | Bookings | Search by code, name or phone. Filter by date and status. |
 | Customers | Booking count, no-shows, block and unblock. |
 | Stations | Add, rename, deactivate; set `bookableOnline` and hourly rate. Owner only. |
-| Settings | Opening hours, booking rules, closures, email texts, staff accounts. Owner only. |
+| Settings | Opening hours, booking rules, closures, staff accounts. Owner only. The slot size, timezone, currency and language are fixed after launch: existing slot locks depend on them. Email texts live in `messages/fr.json` and are not edited from the dashboard. |
 
 ## Notifications
 

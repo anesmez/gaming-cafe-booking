@@ -26,3 +26,21 @@ export async function Forbidden({ email }: { email: string }) {
     </Card>
   );
 }
+
+/** Shown to staff who open an owner page. */
+export async function OwnerOnly() {
+  const t = await getTranslations("admin");
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>{t("forbiddenTitle")}</CardTitle>
+        <CardDescription>{t("ownerOnly")}</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <Button asChild variant="outline">
+          <Link href="/admin">{t("nav.today")}</Link>
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}

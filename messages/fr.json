@@ -26,7 +26,18 @@
       }
     },
     "staffLink": "Espace équipe",
-    "book": "Réserver un créneau"
+    "book": "Réserver un créneau",
+    "info": {
+      "title": "Horaires et tarifs",
+      "hours": "Horaires",
+      "closed": "Fermé",
+      "range": "{open} – {close}",
+      "prices": "Tarifs",
+      "pc": "PC : à partir de {price} {currency} l'heure",
+      "console": "PS5 : {price} {currency} l'heure",
+      "lan": "LAN : prix sur devis",
+      "noPrices": "Tarifs à l'accueil."
+    }
   },
   "login": {
     "title": "Connexion",
@@ -70,7 +81,9 @@
       "calendar": "Calendrier",
       "bookings": "Réservations",
       "new": "Nouvelle",
-      "requests": "Demandes LAN"
+      "requests": "Demandes LAN",
+      "customers": "Clients",
+      "settings": "Réglages"
     },
     "todayTitle": "Aujourd'hui",
     "calendarTitle": "Calendrier",
@@ -167,7 +180,12 @@
       "INVALID_INPUT": "Vérifiez les champs.",
       "NOT_FOUND": "Réservation ou poste introuvable.",
       "FORBIDDEN": "Action réservée à l'équipe.",
-      "other": "L'action n'a pas pu être faite. Réessayez."
+      "other": "L'action n'a pas pu être faite. Réessayez.",
+      "TOO_FAR": "Trop loin dans le temps.",
+      "NAME_TAKEN": "Ce nom est déjà utilisé par un autre poste.",
+      "STATION_IN_USE": "Ce poste a encore des réservations ou une fermeture à venir. Déplacez-les ou annulez-les avant de le désactiver.",
+      "CONFIRM": "Cochez la case de confirmation pour supprimer ce client.",
+      "SLOT_TAKEN_CLOSURE": "Des réservations occupent déjà ces jours. Déplacez-les ou annulez-les d'abord."
     },
     "requests": {
       "title": "Demandes de LAN",
@@ -192,7 +210,150 @@
       "open": "Voir la réservation"
     },
     "pendingRequest": "Demande de LAN en attente de réponse.",
-    "answerRequest": "Répondre à la demande"
+    "answerRequest": "Répondre à la demande",
+    "ownerOnly": "Cette page est réservée au propriétaire.",
+    "settings": {
+      "title": "Réglages",
+      "lead": "Les changements s'appliquent tout de suite aux nouvelles réservations. Les réservations déjà faites gardent leurs horaires.",
+      "sections": {
+        "rules": "Horaires et règles",
+        "closures": "Fermetures",
+        "stations": "Postes et prix",
+        "team": "Équipe"
+      },
+      "save": "Enregistrer",
+      "fixed": "Créneaux de {slot} minutes, fuseau {timezone}, prix en {currency}. Ces valeurs ne se changent pas ici : toutes les réservations existantes en dépendent.",
+      "venue": "La salle",
+      "venueName": "Nom",
+      "address": "Adresse",
+      "hours": "Horaires d'ouverture",
+      "hoursHint": "Une fermeture avant l'ouverture veut dire le lendemain (16:00 → 04:00). Une réservation appartient au jour où elle commence.",
+      "weekdays": [
+        "Dimanche",
+        "Lundi",
+        "Mardi",
+        "Mercredi",
+        "Jeudi",
+        "Vendredi",
+        "Samedi"
+      ],
+      "open": "Ouvert",
+      "from": "De",
+      "to": "À",
+      "stationRules": "Postes et PS5",
+      "stationMinHours": "Durée minimum (heures)",
+      "stationMaxHours": "Durée maximum (heures)",
+      "stationMinLeadMinutes": "Réserver au plus tard (minutes avant)",
+      "stationMaxAdvanceDays": "Réserver au plus tôt (jours avant)",
+      "stationCancelCutoffHours": "Annulation par le client jusqu'à (heures avant)",
+      "maxStationsPerBooking": "Postes par réservation (maximum)",
+      "venueRules": "Privatisation (LAN)",
+      "venueMinHours": "Durée minimum (heures)",
+      "venueMinLeadHours": "Demander au plus tard (heures avant)",
+      "venueMaxAdvanceDays": "Demander au plus tôt (jours avant)",
+      "venueCancelCutoffHours": "Annulation par le client jusqu'à (heures avant)",
+      "approvalTimeoutHours": "Sans réponse, la demande expire après (heures)",
+      "venueBufferMinutes": "Nettoyage après une LAN (minutes)",
+      "customerRules": "Clients",
+      "graceMinutes": "Retard toléré avant absence (minutes)",
+      "maxUpcomingPerCustomer": "Réservations à venir par client (maximum)",
+      "noShowLimit": "Absences avant blocage en ligne",
+      "issuesTitle": "À corriger avant d'enregistrer :",
+      "issues": {
+        "range": "Valeur hors limites.",
+        "time": "Heure non valable.",
+        "timeOnSlot": "Les heures doivent tomber sur :00 ou :30.",
+        "noOpenDay": "Ouvrez au moins un jour.",
+        "overlap": "Ce jour ferme après l'ouverture du lendemain.",
+        "durationOnSlot": "Doit être un multiple de 30 minutes.",
+        "maxBelowMin": "Le maximum est plus petit que le minimum."
+      },
+      "done": {
+        "saved": "Réglages enregistrés."
+      }
+    },
+    "closures": {
+      "title": "Fermetures",
+      "lead": "Bloquez des jours entiers pour toute la salle ou un poste (fête, panne). Une fermeture ne peut pas passer par-dessus une réservation : déplacez ou annulez-la d'abord.",
+      "add": "Nouvelle fermeture",
+      "from": "Du",
+      "to": "Au (inclus)",
+      "what": "Quoi",
+      "wholeVenue": "Toute la salle",
+      "reason": "Motif",
+      "reasonPlaceholder": "Aïd, panne écran…",
+      "create": "Fermer ces jours",
+      "upcoming": "Fermetures à venir",
+      "empty": "Aucune fermeture prévue.",
+      "reopen": "Rouvrir",
+      "done": {
+        "closed": "Fermeture enregistrée.",
+        "reopened": "Ces jours sont de nouveau ouverts."
+      },
+      "range": "{from} → {to}"
+    },
+    "team": {
+      "title": "Équipe",
+      "lead": "Les membres de l'équipe se connectent avec un code reçu par e-mail, comme les clients. Ils gèrent le planning mais pas les réglages ni les demandes LAN.",
+      "email": "Adresse e-mail",
+      "add": "Ajouter à l'équipe",
+      "remove": "Retirer",
+      "roles": {
+        "owner": "Propriétaire",
+        "staff": "Équipe"
+      },
+      "done": {
+        "added": "Ajouté à l'équipe. Cette personne peut se connecter dès maintenant.",
+        "removed": "Retiré de l'équipe."
+      }
+    },
+    "customers": {
+      "title": "Clients",
+      "lead": "Un client est bloqué en ligne après {limit} absences, ou si vous le bloquez. Il peut toujours réserver par téléphone auprès de l'équipe.",
+      "search": "Nom, e-mail ou téléphone",
+      "blockedOnly": "Bloqués seulement",
+      "filter": "Chercher",
+      "empty": "Aucun client trouvé.",
+      "bookings": "{count, plural, =0 {Aucune réservation} one {# réservation} other {# réservations}}",
+      "noShows": "{count, plural, =0 {aucune absence} one {# absence} other {# absences}}",
+      "blocked": "Bloqué",
+      "block": "Bloquer",
+      "unblock": "Débloquer",
+      "delete": "Supprimer le client",
+      "deleteConfirm": "Je confirme : ses réservations à venir sont annulées et son nom, téléphone et e-mail sont effacés.",
+      "done": {
+        "blocked": "Client bloqué.",
+        "unblocked": "Client débloqué, absences remises à zéro.",
+        "deleted": "Client supprimé."
+      }
+    },
+    "closure": {
+      "badge": "Fermeture",
+      "manage": "Gérer les fermetures"
+    },
+    "stationsPage": {
+      "title": "Postes et prix",
+      "lead": "Les groupes sont placés sur des postes voisins, dans l'ordre. Un poste « sur place » ne se réserve pas en ligne mais reste disponible pour l'équipe.",
+      "name": "Nom",
+      "type": "Type",
+      "types": {
+        "pc": "PC",
+        "console": "Console"
+      },
+      "rate": "Prix de l'heure ({currency})",
+      "order": "Ordre",
+      "online": "Réservable en ligne",
+      "active": "Actif",
+      "save": "Enregistrer",
+      "add": "Ajouter un poste",
+      "create": "Ajouter",
+      "upcoming": "{count, plural, =0 {Aucune réservation à venir} one {# réservation à venir} other {# réservations à venir}}",
+      "inactive": "Désactivé",
+      "done": {
+        "added": "Poste ajouté.",
+        "saved": "Poste enregistré."
+      }
+    }
   },
   "email": {
     "footer": "{venue} · {address}",
