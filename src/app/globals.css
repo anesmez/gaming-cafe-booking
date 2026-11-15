@@ -48,3 +48,8 @@ body {
   color: var(--foreground);
   font-family: var(--font-sans);
 }
+
+/* Capitalise the first letter of French dates ("mercredi" → "Mercredi"). */
+.capitalize-first::first-letter {
+  text-transform: uppercase;
+}

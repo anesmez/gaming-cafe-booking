@@ -38,9 +38,8 @@ export default function HomePage() {
         <p className="max-w-xl text-pretty text-base text-muted-foreground sm:text-lg">
           {t("home.lead")}
         </p>
-        {/* Becomes a link to /book in milestone 4. */}
-        <Button size="lg" disabled className="w-full sm:w-fit">
-          {t("home.bookSoon")}
+        <Button asChild size="lg" className="w-full sm:w-fit">
+          <Link href="/book">{t("home.book")}</Link>
         </Button>
       </section>
 

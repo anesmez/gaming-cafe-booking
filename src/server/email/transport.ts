@@ -1,3 +1,4 @@
+import { appendFile } from "node:fs/promises";
 import { Resend } from "resend";
 
 export interface EmailAttachment {
@@ -50,11 +51,20 @@ const consoleTransport: EmailTransport = async (message) => {
   return {};
 };
 
+/** End-to-end tests only: append each email as one JSON line to a file. */
+function fileTransport(path: string): EmailTransport {
+  return async (message) => {
+    await appendFile(path, JSON.stringify({ ...message, attachments: undefined }) + "\n", "utf8");
+    return {};
+  };
+}
+
 /**
- * Resend when it is configured. Without it, emails are printed in development
+ * EMAIL_OUTBOX_FILE (tests, never on Vercel), then Resend when it is configured. Without it, emails are printed in development
  * and refused in production: a login code must never be written to production logs.
  */
 export function defaultTransport(env: NodeJS.ProcessEnv = process.env): EmailTransport {
+  if (env.EMAIL_OUTBOX_FILE && !env.VERCEL) return fileTransport(env.EMAIL_OUTBOX_FILE);
   if (env.RESEND_API_KEY && env.EMAIL_FROM) {
     return resendTransport(env.RESEND_API_KEY, env.EMAIL_FROM);
   }
