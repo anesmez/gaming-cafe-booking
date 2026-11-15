@@ -42,6 +42,7 @@ async function main() {
     MONGODB_URI: replSet.getUri("respawn-e2e"),
     OWNER_EMAIL: "owner@example.com",
     BETTER_AUTH_SECRET: "e2e-secret-that-is-at-least-32-characters-long",
+    CRON_SECRET: "e2e-cron-secret-0123456789",
     APP_URL: `http://localhost:${PORT}`,
     EMAIL_OUTBOX_FILE: outbox,
     E2E_OUTBOX_FILE: outbox,
