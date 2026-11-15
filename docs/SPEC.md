@@ -6,12 +6,12 @@ Nov 15, 2026
 
 A web app for Respawn Cyber Gaming (Dar El Beïda, Algiers) where customers book PC stations, the PS5 or the whole venue from live availability, and the owner runs every reservation from one calendar. It replaces WhatsApp and phone bookings, which today produce overlapping reservations.
 
-One rule makes it work: **the system is the only place a reservation exists.** Phone and WhatsApp requests can still come in, but staff enter them in the dashboard before saying yes. If the owner keeps confirming by chat on the side, the app becomes a third channel and the overlaps get worse.
+**The system is the only place a reservation exists.** Phone and WhatsApp requests can still come in, but staff enter them in the dashboard before saying yes. If the owner keeps confirming by chat on the side, the app becomes a third channel and the overlaps get worse.
 
 Assumptions used throughout, to confirm with the owner (see Open questions):
 
 - The café is in Algeria: timezone `Africa/Algiers`, prices in DZD, French UI first.
-- Open every day from 16:00 to 04:00, per its Google Maps listing. To confirm with the owner.
+- Open every day from 16:00 to 04:00, per its Google Maps listing.
 - 10 PC stations and 1 PS5. Every count is configurable.
 - Customers pay at the café, in cash. No online payment in v1.
 - Most daily traffic is walk-in; online booking covers planned sessions, groups and LAN events.
@@ -222,7 +222,7 @@ Required test before any UI work: 50 parallel requests for the same station and 
 
 ## Tech stack and architecture
 
-One Next.js app on Vercel serves the public site, the dashboard and the API. MongoDB Atlas holds the data, Resend sends email, and a Vercel cron job triggers reminders and expiries.
+One Next.js app on Vercel serves the public site, the dashboard and the API. MongoDB Atlas holds the data, the café's Gmail account sends email (Resend is the fallback), and a scheduled call to the cron route sends reminders and expires requests.
 
 | Layer | Choice | Note |
 | --- | --- | --- |
@@ -230,7 +230,7 @@ One Next.js app on Vercel serves the public site, the dashboard and the API. Mon
 | UI | Tailwind CSS, shadcn/ui | Mobile-first |
 | Database | MongoDB Atlas free cluster, Mongoose | 0.5 GB storage, 100 operations per second, 3-node replica set, optional daily backups ([limits](https://www.mongodb.com/docs/atlas/reference/free-shared-limitations/)) |
 | Auth | Better Auth with its email one-time-code plugin and [MongoDB adapter](https://better-auth.com/docs/adapters/mongo) | No passwords; role stored on `users` |
-| Email | Resend, React Email | Free plan: 3,000 emails a month, 100 a day ([pricing](https://resend.com/docs/knowledge-base/what-is-resend-pricing)) |
+| Email | Gmail SMTP with an app password, Resend as fallback; React Email templates | Gmail: about 500 messages a day. Resend free plan: 3,000 a month, 100 a day, and only to the account owner without a verified domain ([pricing](https://resend.com/docs/knowledge-base/what-is-resend-pricing)) |
 | Scheduled jobs | GitHub Actions every 30 minutes during opening hours, plus Vercel Cron once a day | Reminders, request expiry and its email, auto-complete, the owner's 09:00 summary |
 | Validation | zod | On every server input |
 | Dates | date-fns, date-fns-tz | Venue timezone from settings |
@@ -242,7 +242,7 @@ Two hosting facts to plan for:
 - Vercel's free Hobby plan is limited to non-commercial, personal use ([Hobby plan](https://vercel.com/docs/plans/hobby)). A café's booking system is commercial, so production needs the paid Pro plan.
 - On Hobby a cron job can run only once per day; Pro allows once per minute ([cron limits](https://vercel.com/docs/cron-jobs/usage-and-pricing)). Two-hour reminders need Pro or an external scheduler calling the cron URL. Vercel's docs also mark Cron Jobs as legacy, to be replaced by Schedules; check which to use at build time.
 
-At three emails per booking (code, confirmation, reminder), Resend's free daily cap covers about 30 bookings a day.
+At three emails per booking (code, confirmation, reminder), Gmail's daily limit covers well over 100 bookings a day.
 
 MongoDB works with the lock pattern above. If the database choice is still open, Postgres can enforce no-overlap on time ranges with a built-in exclusion constraint, which removes the lock collection entirely.
 
@@ -316,7 +316,7 @@ Eight milestones, one per Claude Code session, each ending with passing tests an
 - **No domain.** None can be bought, so the site lives at `https://gaming-cafe-booking-ten.vercel.app` and email goes out from the café's Gmail address (`GMAIL_USER` + `GMAIL_APP_PASSWORD`). Gmail allows about 500 messages a day, well above this café's needs. A domain can be added later without code changes: set it on Vercel and point `APP_URL` at it.
 - **Scheduler.** Vercel's free plan runs a cron job once a day, too rarely for 2-hour reminders. `.github/workflows/tick.yml` calls `GET /api/cron/tick` every 30 minutes from 14:00 to 04:30 Algiers time and at 09:05; `vercel.json` adds a daily 09:00 call as a fallback, since GitHub pauses scheduled workflows in a repository with no activity for 60 days. Both send `Authorization: Bearer $CRON_SECRET`; the secret is set on Vercel and as a GitHub repository secret.
 - **Never-checked-in bookings** stay `confirmed` after they end. Staff mark them no-show or check them in late; the system does not guess.
-- **Emails added in this milestone:** reminder (2 h before, LAN 24 h), cancelled (to the customer, and to the team when the customer cancels), moved (only when the time changes), LAN request expired, and the owner's daily summary.
+- **Emails added for launch:** reminder (2 h before, LAN 24 h), cancelled (to the customer, and to the team when the customer cancels), moved (only when the time changes), LAN request expired, and the owner's daily summary.
 
 ## Open questions for the owner
 
@@ -332,5 +332,5 @@ The answers change defaults, not the design, so the build can start before they 
 - [ ] Is 15 minutes the right grace period before a no-show?
 - [ ] Languages: French only, or Arabic and English too?
 - [ ] Does the café already run timer or billing software on the PCs?
-- [ ] Which domain name and sender email address will it use?
+- [x] Which domain name and sender email address will it use? No domain for now; email goes out from cybergamingdeb@gmail.com (see Launch decisions).
 - [ ] Will the owner commit to entering every phone and WhatsApp booking in the system?
