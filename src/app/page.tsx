@@ -1,4 +1,5 @@
 import { Gamepad2, Monitor, Users } from "lucide-react";
+import Image from "next/image";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,8 +14,18 @@ export default function HomePage() {
   const t = useTranslations();
 
   return (
-    <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-10 px-5 py-10 sm:py-16">
-      <header className="text-sm font-semibold tracking-wide">{t("app.name")}</header>
+    <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-10 px-5 py-8 sm:py-14">
+      <header className="flex items-center gap-3">
+        <Image
+          src="/brand/emblem.png"
+          alt={t("app.logoAlt")}
+          width={44}
+          height={44}
+          priority
+          className="rounded-xl ring-1 ring-border"
+        />
+        <span className="text-sm font-semibold uppercase tracking-[0.14em]">{t("app.name")}</span>
+      </header>
 
       <section className="flex flex-col gap-5">
         <p className="font-mono text-xs uppercase tracking-widest text-primary">
@@ -36,7 +47,7 @@ export default function HomePage() {
         {OFFERS.map(({ key, icon: Icon }) => (
           <Card key={key}>
             <CardHeader>
-              <Icon className="mb-2 size-5 text-primary" aria-hidden />
+              <Icon className="mb-2 size-5 text-accent" aria-hidden />
               <CardTitle>{t(`home.offers.${key}.title`)}</CardTitle>
               <CardDescription>{t(`home.offers.${key}.description`)}</CardDescription>
             </CardHeader>

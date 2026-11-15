@@ -1,6 +1,6 @@
-# Gaming café booking
+# Respawn Cyber Gaming booking
 
-Booking and management system for a gaming café: customers book PC stations, the PS5 or the whole venue for a LAN from live availability, and staff run every reservation from one calendar.
+Booking and management system for Respawn Cyber Gaming, a gaming café in Dar El Beïda, Algiers: customers book PC stations, the PS5 or the whole venue for a LAN from live availability, and staff run every reservation from one calendar.
 
 The full product spec is in [`docs/SPEC.md`](docs/SPEC.md).
 
