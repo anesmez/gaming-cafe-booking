@@ -59,7 +59,8 @@ test("the owner takes a phone booking, moves it and cancels it", async ({ page }
   await expect(page.getByTestId("booking-status")).toHaveText("Confirmée");
   const code = (await page.getByRole("heading", { level: 1 }).textContent())?.match(/GC-[A-Z0-9]{4}/)?.[0];
   expect(code).toBeTruthy();
-  await expect(page.getByText("PC 07", { exact: true })).toBeVisible();
+  // (Next.js keeps the previous page mounted but hidden, so match the details field itself.)
+  await expect(page.getByRole("definition").filter({ hasText: /^PC 07$/ })).toBeVisible();
 
   // It is on tomorrow's grid; PC 07 at 18:00 is no longer offered.
   await page.goto(`/admin/calendar?date=${date}`);
@@ -80,7 +81,7 @@ test("the owner takes a phone booking, moves it and cancels it", async ({ page }
   await page.getByLabel("Début").selectOption({ label: "19:00" });
   await page.getByRole("button", { name: "Déplacer" }).click();
   await expect(page.getByText("Réservation déplacée.")).toBeVisible();
-  await expect(page.getByText(/19:00 – 21:00/)).toBeVisible();
+  await expect(page.getByRole("definition").filter({ hasText: /19:00 – 21:00/ })).toBeVisible();
 
   // Found by phone number, typed differently.
   await page.goto("/admin/bookings?q=0770112233");
