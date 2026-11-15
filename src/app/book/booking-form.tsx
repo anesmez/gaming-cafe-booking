@@ -99,7 +99,7 @@ export function BookingForm({ dates, durations, maxStations, slotMinutes, statio
       <input type="hidden" name="count" value={effectiveCount} />
       {chosen ? <input type="hidden" name="start" value={chosen.start.toISOString()} /> : null}
 
-      <fieldset className="flex flex-col gap-3">
+      <fieldset className="flex min-w-0 flex-col gap-3">
         <legend className="mb-3 text-sm font-semibold">{t("what")}</legend>
         <div className="grid grid-cols-2 gap-2">
           {(["pc", "console"] as const).map((value) => (
@@ -137,7 +137,7 @@ export function BookingForm({ dates, durations, maxStations, slotMinutes, statio
         <p className="text-xs text-muted-foreground">{t("lanHint")}</p>
       </fieldset>
 
-      <fieldset className="flex flex-col gap-3">
+      <fieldset className="flex min-w-0 flex-col gap-3">
         <legend className="mb-3 text-sm font-semibold">{t("when")}</legend>
         <div className="-mx-5 flex gap-2 overflow-x-auto px-5 pb-1" role="radiogroup" aria-label={t("when")}>
           {dates.map((d, i) => {
@@ -181,7 +181,7 @@ export function BookingForm({ dates, durations, maxStations, slotMinutes, statio
         </div>
       </fieldset>
 
-      <fieldset className="flex flex-col gap-3">
+      <fieldset className="flex min-w-0 flex-col gap-3">
         <legend className="mb-3 text-sm font-semibold">{t("time")}</legend>
         {load.state === "loading" ? (
           <p className="text-sm text-muted-foreground">{t("loadingSlots")}</p>
@@ -212,7 +212,7 @@ export function BookingForm({ dates, durations, maxStations, slotMinutes, statio
         )}
       </fieldset>
 
-      <fieldset className="flex flex-col gap-4">
+      <fieldset className="flex min-w-0 flex-col gap-4">
         <legend className="mb-3 text-sm font-semibold">{t("you")}</legend>
         <div className="flex flex-col gap-2">
           <Label htmlFor="name">{t("name")}</Label>
@@ -241,7 +241,7 @@ export function BookingForm({ dates, durations, maxStations, slotMinutes, statio
       <div className="sticky bottom-0 z-10 -mx-5 flex flex-col gap-2 border-t border-border bg-background/95 px-5 py-4 backdrop-blur">
         {chosen ? (
           <p className="text-sm">
-            <span className="font-semibold capitalize">
+            <span className="capitalize-first block font-semibold">
               {t("summary", {
                 date: fmt(chosen.start, "EEEE d MMMM"),
                 start: fmt(chosen.start, "HH:mm"),
