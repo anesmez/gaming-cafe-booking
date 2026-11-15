@@ -209,7 +209,7 @@ export interface TeamMember {
 export async function listTeam(): Promise<TeamMember[]> {
   await connectDb();
   const users = await User.find({ role: { $in: ["staff", "owner"] } })
-    .sort({ role: -1, email: 1 })
+    .sort({ role: 1, email: 1 }) // "owner" sorts before "staff"
     .lean();
   return users.map((u) => ({
     id: String(u._id),
