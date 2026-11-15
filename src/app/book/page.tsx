@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { getTranslations } from "next-intl/server";
+import { connection } from "next/server";
 import { Suspense } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -30,6 +31,7 @@ export default function BookPage() {
 }
 
 async function BookContent() {
+  await connection(); // reads the clock and the session: request time only
   const t = await getTranslations("book");
   const [user, settings] = await Promise.all([getCurrentUser(), getPublicSettings().catch(() => null)]);
 

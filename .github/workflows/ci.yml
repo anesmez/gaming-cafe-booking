@@ -45,6 +45,10 @@ jobs:
       - name: End-to-end tests (phone viewport)
         run: pnpm test:e2e
 
+      - name: Show Playwright failure context
+        if: failure()
+        run: for f in test-results/*/error-context.md; do echo "== $f"; cat "$f"; done || true
+
       - name: Upload Playwright traces on failure
         if: failure()
         uses: actions/upload-artifact@v4

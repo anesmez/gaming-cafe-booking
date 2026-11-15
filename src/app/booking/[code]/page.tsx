@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { getTranslations } from "next-intl/server";
+import { connection } from "next/server";
 import { Suspense } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -37,6 +38,7 @@ export default function ManageBookingPage({ params, searchParams }: Props) {
 const first = (value: string | string[] | undefined) => (Array.isArray(value) ? value[0] : value);
 
 async function ManageContent({ params, searchParams }: Props) {
+  await connection(); // reads the clock and the session: request time only
   const [{ code }, query, user, t] = await Promise.all([
     params,
     searchParams,
