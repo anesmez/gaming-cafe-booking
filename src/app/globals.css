@@ -1,0 +1,40 @@
+@import "tailwindcss";
+
+/* Single dark theme. Tokens follow the shadcn/ui naming so generated components drop in. */
+:root {
+  --radius: 0.625rem;
+  --background: oklch(0.16 0.02 265);
+  --foreground: oklch(0.96 0.01 265);
+  --card: oklch(0.21 0.025 265);
+  --card-foreground: oklch(0.96 0.01 265);
+  --primary: oklch(0.87 0.2 130);
+  --primary-foreground: oklch(0.2 0.04 130);
+  --muted: oklch(0.26 0.03 265);
+  --muted-foreground: oklch(0.74 0.02 265);
+  --border: oklch(0.31 0.03 265);
+  --ring: oklch(0.87 0.2 130);
+  color-scheme: dark;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-ring: var(--ring);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-xl: calc(var(--radius) + 4px);
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+}
