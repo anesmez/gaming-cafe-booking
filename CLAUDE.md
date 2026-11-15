@@ -12,7 +12,7 @@ The product spec is `docs/SPEC.md`. Read it before any work. It defines the book
 - [x] 4. Public booking flow
 - [x] 5. Dashboard
 - [x] 6. LAN requests
-- [ ] 7. Settings
+- [x] 7. Settings
 - [ ] 8. Jobs and launch
 
 Tick a milestone in the same PR that completes it.

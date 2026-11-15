@@ -37,6 +37,7 @@ async function StaffBooking({ params, searchParams }: Props) {
   if (!gate.allowed) return <Forbidden email={gate.user.email} />;
 
   const [t, tm, settings] = await Promise.all([getTranslations("admin"), getTranslations("manage"), getPublicSettings()]);
+  const viewerIsOwner = gate.user.role === "owner";
 
   let b;
   try {
@@ -54,7 +55,9 @@ async function StaffBooking({ params, searchParams }: Props) {
   const error = typeof query.error === "string" ? query.error : null;
 
   const actions: { key: "checkIn" | "noShow" | "complete" | "cancel"; variant: "default" | "outline" | "secondary" }[] =
-    b.status === "confirmed"
+    b.type === "block"
+      ? []
+      : b.status === "confirmed"
       ? [
           { key: "checkIn", variant: "default" },
           { key: "noShow", variant: "secondary" },
@@ -128,6 +131,17 @@ async function StaffBooking({ params, searchParams }: Props) {
           </dl>
         </CardContent>
       </Card>
+
+      {b.type === "block" ? (
+        <div className="flex flex-wrap items-center gap-3 rounded-md border border-border bg-muted px-4 py-3 text-sm">
+          <span>{t("closure.badge")}</span>
+          {viewerIsOwner ? (
+            <Button asChild size="sm" variant="outline">
+              <Link href="/admin/settings/closures">{t("closure.manage")}</Link>
+            </Button>
+          ) : null}
+        </div>
+      ) : null}
 
       {b.status === "pending_approval" ? (
         <div className="flex flex-wrap items-center gap-3 rounded-md border border-border bg-muted px-4 py-3 text-sm">
