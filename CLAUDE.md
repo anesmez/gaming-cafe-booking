@@ -38,7 +38,7 @@ pnpm lint         # eslint
 pnpm typecheck    # tsc --noEmit
 pnpm test         # unit tests (no database)
 pnpm test:int     # integration tests on an in-memory MongoDB replica set
-pnpm build        # production build
+pnpm build        # seeds if MONGODB_URI is set, then production build
 pnpm seed         # seed settings, stations and the owner (reads .env.local)
 ```
 

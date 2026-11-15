@@ -19,14 +19,12 @@ pnpm seed                    # creates settings, 10 PCs, the PS5 and the owner a
 pnpm dev                     # http://localhost:3000
 ```
 
-`GET /api/health` returns `{ "ok": true, "db": "up" }` when the app can reach MongoDB.
-
 ## Scripts
 
 | Command | What it does |
 | --- | --- |
 | `pnpm dev` | Local dev server |
-| `pnpm build` | Production build |
+| `pnpm build` | Seeds if `MONGODB_URI` is set, then builds |
 | `pnpm lint` | ESLint |
 | `pnpm typecheck` | TypeScript, no emit |
 | `pnpm test` | Unit tests, no database |
@@ -35,4 +33,8 @@ pnpm dev                     # http://localhost:3000
 
 ## Deploying
 
-Import the repo in Vercel and set the environment variables from `.env.example`. Run `pnpm seed` once against the production database.
+Every push to `main` deploys to Vercel. The build runs the seed first whenever `MONGODB_URI` is set, so a new database is populated by its first deploy; the seed never overwrites existing settings or stations.
+
+`GET /api/health` returns `{ "ok": true, "db": "up", "seeded": true }` when the app can reach MongoDB and the seed has run.
+
+The Atlas cluster must accept connections from Vercel: in Atlas, Network Access, allow `0.0.0.0/0`.
