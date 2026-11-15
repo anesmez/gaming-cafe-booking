@@ -7,7 +7,7 @@ The product spec is `docs/SPEC.md`. Read it before any work. It defines the book
 ## Status
 
 - [x] 1. Scaffold
-- [ ] 2. Booking engine
+- [x] 2. Booking engine
 - [ ] 3. Auth and email
 - [ ] 4. Public booking flow
 - [ ] 5. Dashboard
@@ -23,6 +23,7 @@ Tick a milestone in the same PR that completes it.
 - `src/server/booking-service.ts` is the only code that writes `bookings` and `slotLocks`. Pages, server actions and route handlers call it; they never write those collections directly.
 - `src/server/models/` holds the Mongoose schemas. Field names follow the data model in the spec exactly.
 - Availability is read from `slotLocks` only, never from overlap queries on `bookings`.
+- A slot lock exists only while its booking holds slots (`pending_approval`, `confirmed`, `checked_in`). Any status change away from those deletes the booking's locks in the same transaction.
 - There is no override or force path around a slot conflict. Do not add one.
 - All dates are stored in UTC and shown in the venue timezone from `settings`. Never rely on server local time.
 - Every user-facing string goes through next-intl (`messages/fr.json`). No hard-coded copy in components.

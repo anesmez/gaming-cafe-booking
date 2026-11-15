@@ -1,5 +1,7 @@
+import { Booking } from "./models/booking";
 import { Resource } from "./models/resource";
 import { Settings } from "./models/settings";
+import { SlotLock } from "./models/slot-lock";
 import { User } from "./models/user";
 import { buildDefaultResources, buildDefaultSettings, buildOwner } from "./seed-data";
 
@@ -18,7 +20,9 @@ export interface SeedResult {
  * Expects an open Mongoose connection (see connectDb).
  */
 export async function seed(ownerEmail: string): Promise<SeedResult> {
-  await Promise.all([Settings.init(), Resource.init(), User.init()]);
+  // Build every index up front, including the unique slot-lock index that
+  // prevents double bookings.
+  await Promise.all([Settings.init(), Resource.init(), User.init(), Booking.init(), SlotLock.init()]);
 
   const defaults = buildDefaultSettings();
   const settingsWrite = await Settings.updateOne(
