@@ -23,6 +23,8 @@ async function logIn(page: Page, email: string, from: string) {
   }
   await page.getByLabel("Adresse e-mail").fill(email);
   await page.getByRole("button", { name: "Recevoir le code" }).click();
+  // The code field appears only once the email is sent: read the outbox after that.
+  await expect(page.getByLabel("Code à 6 chiffres")).toBeVisible();
   let code: string | undefined;
   await expect
     .poll(async () => {

@@ -28,6 +28,8 @@ async function logInAsOwner(page: Page) {
   await expect(page).toHaveURL(/\/login\?next=/);
   await page.getByLabel("Adresse e-mail").fill(OWNER);
   await page.getByRole("button", { name: "Recevoir le code" }).click();
+  // The code field appears only once the email is sent: read the outbox after that.
+  await expect(page.getByLabel("Code à 6 chiffres")).toBeVisible();
   await page.getByLabel("Code à 6 chiffres").fill(await latestLoginCode(OWNER));
   await page.getByRole("button", { name: "Se connecter" }).click();
   await expect(page).toHaveURL(/\/admin$/);
