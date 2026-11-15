@@ -3,9 +3,10 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { classifySendError, classifyVerifyError, type LoginError } from "@/lib/auth/login-errors";
+import { classifyVerifyError, type LoginError } from "@/lib/auth/login-errors";
 import { homePathFor, safeRedirectPath, toRole } from "@/lib/auth/roles";
 import { getAuth } from "@/server/auth";
+import { requestLoginCode } from "@/server/login";
 
 export interface LoginState {
   step: "email" | "code";
@@ -27,12 +28,12 @@ export async function loginAction(_previous: LoginState, formData: FormData): Pr
     case "reset":
       return { step: "email", email: "" };
     default:
-      return requestLoginCode(formData);
+      return sendCode(formData);
   }
 }
 
 /** Step 1: email the code. */
-async function requestLoginCode(formData: FormData): Promise<LoginState> {
+async function sendCode(formData: FormData): Promise<LoginState> {
   const parsed = emailSchema.safeParse(formData.get("email"));
   if (!parsed.success) {
     return { step: "email", email: String(formData.get("email") ?? ""), error: "invalidEmail" };
@@ -41,11 +42,11 @@ async function requestLoginCode(formData: FormData): Promise<LoginState> {
 
   try {
     const auth = await getAuth();
-    await auth.api.sendVerificationOTP({ body: { email, type: "sign-in" }, headers: await headers() });
+    const result = await requestLoginCode(auth, email, { headers: await headers() });
+    if (!result.ok) return { step: "email", email, error: result.error };
   } catch (error) {
-    const reason = classifySendError(error);
-    if (reason === "unavailable") console.error("login code could not be sent:", error);
-    return { step: "email", email, error: reason };
+    console.error("login code could not be sent:", error);
+    return { step: "email", email, error: "unavailable" };
   }
 
   return { step: "code", email };

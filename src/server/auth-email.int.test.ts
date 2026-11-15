@@ -1,13 +1,14 @@
 import { MongoMemoryReplSet } from "mongodb-memory-server";
 import mongoose, { Types } from "mongoose";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
-import { classifySendError, classifyVerifyError } from "@/lib/auth/login-errors";
+import { classifyVerifyError } from "@/lib/auth/login-errors";
 import { BookingError } from "@/lib/booking";
 import { algiers } from "@/lib/booking/fixtures";
 import { createAuth, type Auth } from "./auth";
 import { createBooking } from "./booking-service";
 import { connectDb, disconnectDb } from "./db";
 import { LOGIN_CODES_PER_HOUR, notify } from "./email/notify";
+import { requestLoginCode } from "./login";
 import type { EmailMessage, EmailTransport } from "./email/transport";
 import { Booking } from "./models/booking";
 import { EmailLog } from "./models/email-log";
@@ -72,7 +73,8 @@ afterAll(async () => {
 
 /** Asks for a code and reads it from the email that was "sent". */
 async function requestCode(email: string): Promise<string> {
-  await auth.api.sendVerificationOTP({ body: { email, type: "sign-in" } });
+  const result = await requestLoginCode(auth, email.trim().toLowerCase(), { now: notifyNow });
+  if (!result.ok) throw Object.assign(new Error(result.error), { loginError: result.error });
   const message = outbox.findLast((m) => m.to === email.trim().toLowerCase());
   const code = message?.subject.match(/\b\d{6}\b/)?.[0];
   if (!code) throw new Error(`no code email found for ${email}`);
@@ -237,7 +239,7 @@ describe("login by email code", () => {
     for (let i = 0; i < LOGIN_CODES_PER_HOUR; i++) await requestCode("player@example.com");
 
     const error = await caught(requestCode("player@example.com"));
-    expect(classifySendError(error)).toBe("tooManyCodes");
+    expect((error as { loginError?: string }).loginError).toBe("tooManyCodes");
     expect(outbox.filter((m) => m.to === "player@example.com")).toHaveLength(5);
     expect(await EmailLog.countDocuments({ to: "player@example.com" })).toBe(5);
 
@@ -252,7 +254,7 @@ describe("login by email code", () => {
 
     const error = await caught(requestCode("player@example.com"));
 
-    expect(classifySendError(error)).toBe("unavailable");
+    expect((error as { loginError?: string }).loginError).toBe("unavailable");
     const row = await EmailLog.findOne({ to: "player@example.com" }).lean();
     expect(row).toMatchObject({ template: "login_code", status: "failed" });
     expect(row?.error).toContain("provider is down");

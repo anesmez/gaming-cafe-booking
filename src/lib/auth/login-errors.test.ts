@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { AUTH_ERRORS, classifySendError, classifyVerifyError } from "./login-errors";
+import { classifyVerifyError } from "./login-errors";
 
 /** The shape the auth library throws: an error with a status and a body. */
 const apiError = (code: string, message: string) => Object.assign(new Error(message), { body: { code, message } });
@@ -20,13 +20,5 @@ describe("classifyVerifyError", () => {
     expect(classifyVerifyError(new Error("connect ECONNREFUSED"))).toBe("unavailable");
     expect(classifyVerifyError(null)).toBe("unavailable");
     expect(classifyVerifyError("nope")).toBe("unavailable");
-  });
-});
-
-describe("classifySendError", () => {
-  it("tells the per-address limit apart from a delivery failure", () => {
-    expect(classifySendError(apiError("TOO_MANY_REQUESTS", AUTH_ERRORS.rateLimited))).toBe("tooManyCodes");
-    expect(classifySendError(apiError("SERVICE_UNAVAILABLE", AUTH_ERRORS.sendFailed))).toBe("unavailable");
-    expect(classifySendError(new Error("boom"))).toBe("unavailable");
   });
 });

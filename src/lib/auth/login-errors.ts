@@ -27,10 +27,6 @@ export function errorText(error: unknown): string {
     .join(" ");
 }
 
-export function classifySendError(error: unknown): LoginError {
-  return errorText(error).includes(AUTH_ERRORS.rateLimited) ? "tooManyCodes" : "unavailable";
-}
-
 export function classifyVerifyError(error: unknown): LoginError {
   const text = errorText(error).toUpperCase().replace(/_/g, " ");
   if (text.includes("TOO MANY ATTEMPTS")) return "tooManyAttempts";
