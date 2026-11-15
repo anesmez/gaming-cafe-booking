@@ -57,7 +57,7 @@ test("the owner changes rules, closes a day, adds a station and a staff member",
   await main.getByLabel("Durée maximum (heures)").first().fill("0.5");
   await limit.fill("4");
   await main.getByRole("button", { name: "Enregistrer" }).click();
-  await expect(main.getByRole("alert")).toContainText("À corriger");
+  await expect(main.getByRole("alert").filter({ hasText: "À corriger" })).toBeVisible();
   await expect(main.getByText("Le maximum est plus petit que le minimum.")).toBeVisible();
   await expect(main.getByLabel("Absences avant blocage en ligne")).toHaveValue("4");
   await main.getByLabel("Durée maximum (heures)").first().fill("6");
