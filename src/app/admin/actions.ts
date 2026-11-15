@@ -5,12 +5,14 @@ import { z } from "zod";
 import { hasRole } from "@/lib/auth/roles";
 import { BookingError, addMinutes } from "@/lib/booking";
 import {
+  approveVenueBooking,
   cancelBooking,
   checkInBooking,
   completeBooking,
   createBooking,
   markNoShow,
   moveBooking,
+  rejectVenueBooking,
 } from "@/server/booking-service";
 import { notify } from "@/server/email/notify";
 import { getCurrentUser } from "@/server/session";
@@ -138,4 +140,40 @@ export async function moveStaffBookingAction(_prev: StaffFormState, formData: Fo
     return { error: errorCode(error) };
   }
   redirect(detailUrl(code.data, "done=moved"));
+}
+
+const decisionForm = z.object({
+  code: codeSchema,
+  decision: z.enum(["approve", "reject"]),
+  quotedPrice: z.union([z.literal(""), z.coerce.number().int().min(0).max(10_000_000)]),
+  note: z.string().trim().max(500),
+});
+
+/** Owner only: answer a LAN request, and tell the customer. */
+export async function decideRequestAction(formData: FormData): Promise<void> {
+  const parsed = decisionForm.safeParse({
+    code: formData.get("code"),
+    decision: formData.get("decision"),
+    quotedPrice: formData.get("quotedPrice") ?? "",
+    note: formData.get("note") ?? "",
+  });
+  if (!parsed.success) redirect("/admin/requests?error=INVALID_INPUT");
+  const { code, decision, quotedPrice, note } = parsed.data;
+
+  let target: string;
+  try {
+    const actor = await staffActor();
+    const input = {
+      code,
+      actor,
+      ...(note ? { note } : {}),
+      ...(decision === "approve" && quotedPrice !== "" ? { quotedPrice } : {}),
+    };
+    const booking = decision === "approve" ? await approveVenueBooking(input) : await rejectVenueBooking(input);
+    await notify({ type: "lan_decided", booking, decision: decision === "approve" ? "approved" : "rejected", ...(note ? { note } : {}) });
+    target = `/admin/requests?done=${decision === "approve" ? "approved" : "rejected"}&code=${code}`;
+  } catch (error) {
+    target = `/admin/requests?error=${errorCode(error)}`;
+  }
+  redirect(target);
 }

@@ -97,6 +97,7 @@ bookingSchema.index({ start: 1, end: 1 });
 bookingSchema.index({ status: 1, start: 1 });
 bookingSchema.index({ "customer.userId": 1, start: -1 });
 bookingSchema.index({ "customer.email": 1, start: -1 });
+bookingSchema.index({ status: 1, "history.0.at": 1 });
 
 export const Booking: Model<BookingRecord> =
   (models.Booking as Model<BookingRecord>) ?? model<BookingRecord>("Booking", bookingSchema);

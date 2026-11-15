@@ -17,6 +17,7 @@ import {
   normalizeBookingCode,
   pickStations,
   validateStationBooking,
+  validateVenueRequest,
   type ActorKind,
   type BookingSettings,
 } from "@/lib/booking";
@@ -181,6 +182,8 @@ export async function createBooking(raw: CreateBookingInput, clock: Clock = {}):
   if (actorKind === "customer") {
     assertCustomerMayBook(await customerStanding(input.customer, now), settings);
   }
+  // A request nobody answered must not block this booking.
+  await expireStaleRequests(now);
 
   const draft: BookingDraft = {
     start: input.start,
@@ -383,13 +386,14 @@ export async function moveBooking(raw: MoveBookingInput, clock: Clock = {}): Pro
 }
 
 /** Free and taken slots for one business day, read from slot locks only. */
-export async function getAvailability(raw: AvailabilityInput): Promise<Availability> {
+export async function getAvailability(raw: AvailabilityInput, clock: Clock = {}): Promise<Availability> {
   const input = parse(availabilitySchema, raw);
   if (!isLocalDate(input.date)) {
     throw new BookingError("INVALID_INPUT", "date must be YYYY-MM-DD");
   }
 
   await ready();
+  await expireStaleRequests(clock.now ?? new Date());
   const settings = await loadSettings();
   const day = businessDayWindow(input.date, settings.openingHours, settings.timezone);
 
@@ -519,19 +523,23 @@ export async function completeBooking(raw: StaffActionInput, clock: Clock = {}):
 async function setStatus(
   booking: BookingRecord,
   to: BookingRecord["status"],
-  input: { actor: Actor; note?: string },
+  input: { actor: Actor | "system"; note?: string },
   now: Date,
-  options: { releaseLocks: boolean; extra?: (session: mongoose.ClientSession) => Promise<void> },
+  options: {
+    releaseLocks: boolean;
+    set?: Partial<Pick<BookingRecord, "quotedPrice">>;
+    extra?: (session: mongoose.ClientSession) => Promise<void>;
+  },
 ): Promise<void> {
   await transaction(async (session) => {
     const update = await Booking.updateOne(
       { _id: booking._id, status: booking.status },
       {
-        $set: { status: to },
+        $set: { status: to, ...options.set },
         $push: {
           history: {
             at: now,
-            by: actorLabel(input.actor),
+            by: input.actor === "system" ? "system" : actorLabel(input.actor),
             from: booking.status,
             to,
             ...(input.note ? { note: input.note } : {}),
@@ -550,6 +558,154 @@ async function setStatus(
 
 function requireStaff(actor: Actor): void {
   if (kindOf(actor) !== "staff") throw new BookingError("FORBIDDEN", "staff only");
+}
+
+// ---------------------------------------------------------------------------
+// Full-venue (LAN) requests
+// ---------------------------------------------------------------------------
+
+const venueRequestSchema = z.object({
+  actor: actorSchema,
+  start: z.date(),
+  end: z.date(),
+  customer: customerSchema,
+  partySize: z.number().int().min(2).max(100),
+  notes: z.string().trim().max(500).optional(),
+});
+export type VenueRequestInput = z.input<typeof venueRequestSchema>;
+
+/**
+ * A group asks for the whole venue. Every active station and the console are
+ * locked from the start until after the cleanup buffer, in one transaction,
+ * so the request only goes in when all of them are free. It waits for the
+ * owner as pending_approval, holding those slots.
+ */
+export async function requestVenueBooking(raw: VenueRequestInput, clock: Clock = {}): Promise<CreatedBooking> {
+  const input = parse(venueRequestSchema, raw);
+  const now = clock.now ?? new Date();
+  const actorKind = kindOf(input.actor);
+  if (actorKind === "customer" && !input.customer.email) {
+    throw new BookingError("INVALID_INPUT", "customer.email is required for online requests");
+  }
+
+  await ready();
+  const settings = await loadSettings();
+  const lockUntil = validateVenueRequest({ start: input.start, end: input.end }, settings, now);
+  await expireStaleRequests(now);
+
+  if (actorKind === "customer") {
+    assertCustomerMayBook(await customerStanding(input.customer, now), settings);
+  }
+
+  const resources = await Resource.find({ active: true }).select({ hourlyRate: 1 }).sort({ sortOrder: 1 }).lean();
+  if (resources.length === 0) throw new BookingError("NOT_FOUND", "no active stations");
+
+  return insertBooking(
+    {
+      type: "venue",
+      status: "pending_approval",
+      start: input.start,
+      end: input.end,
+      lockUntil,
+      customer: {
+        ...(input.customer.userId ? { userId: new Types.ObjectId(input.customer.userId) } : {}),
+        name: input.customer.name,
+        phone: input.customer.phone,
+        ...(input.customer.email ? { email: input.customer.email } : {}),
+      },
+      partySize: input.partySize,
+      ...(input.notes ? { notes: input.notes } : {}),
+      source: actorKind === "customer" ? "online" : "phone",
+      by: actorLabel(input.actor),
+      now,
+    },
+    resources,
+    settings,
+  );
+}
+
+const decisionSchema = z.object({
+  code: z.string().min(1).max(20),
+  actor: actorSchema,
+  quotedPrice: z.number().int().min(0).max(10_000_000).optional(),
+  note: z.string().trim().max(500).optional(),
+});
+export type DecisionInput = z.input<typeof decisionSchema>;
+
+async function pendingRequest(code: string, actor: Actor, now: Date): Promise<BookingRecord> {
+  if (actor.role !== "owner") throw new BookingError("FORBIDDEN", "only the owner decides on LAN requests");
+  await ready();
+  await expireStaleRequests(now);
+  const booking = await findByCode(code);
+  if (booking.type !== "venue" || booking.status !== "pending_approval") {
+    throw new BookingError("INVALID_STATE", `a ${booking.status} booking cannot be decided`);
+  }
+  return booking;
+}
+
+/** Owner says yes: pending → confirmed, with the agreed price. The slots stay held. */
+export async function approveVenueBooking(raw: DecisionInput, clock: Clock = {}): Promise<BookingRecord> {
+  const input = parse(decisionSchema, raw);
+  const now = clock.now ?? new Date();
+  const booking = await pendingRequest(input.code, input.actor, now);
+  await setStatus(booking, "confirmed", input, now, {
+    releaseLocks: false,
+    ...(input.quotedPrice !== undefined ? { set: { quotedPrice: input.quotedPrice } } : {}),
+  });
+  return findByCode(input.code);
+}
+
+/** Owner says no: pending → rejected. Every slot is freed. */
+export async function rejectVenueBooking(raw: DecisionInput, clock: Clock = {}): Promise<BookingRecord> {
+  const input = parse(decisionSchema, raw);
+  const now = clock.now ?? new Date();
+  const booking = await pendingRequest(input.code, input.actor, now);
+  await setStatus(booking, "rejected", input, now, { releaseLocks: true });
+  return findByCode(input.code);
+}
+
+/**
+ * Requests the owner has not answered within `approvalTimeoutHours` expire
+ * and free their slots. Called before every read and write that depends on
+ * availability, so an expired request never blocks anyone, and by the
+ * scheduled job (milestone 8). Returns the expired bookings.
+ */
+export async function expireStaleRequests(now: Date = new Date()): Promise<BookingRecord[]> {
+  const settings = await loadSettings();
+  const cutoff = addMinutes(now, -settings.venue.approvalTimeoutHours * 60);
+  // history[0].at is when the request was made, on the engine's clock.
+  const stale = await Booking.find({ status: "pending_approval", "history.0.at": { $lte: cutoff } }).lean<
+    BookingRecord[]
+  >();
+
+  const expired: BookingRecord[] = [];
+  for (const booking of stale) {
+    try {
+      await setStatus(booking, "expired", { actor: "system", note: "no answer in time" }, now, { releaseLocks: true });
+      expired.push(booking);
+    } catch (error) {
+      // Decided or expired by someone else in the meantime.
+      if (!(error instanceof BookingError && error.code === "INVALID_STATE")) throw error;
+    }
+  }
+  return expired;
+}
+
+/** Pending LAN requests, oldest first, for the owner. */
+export async function listPendingRequests(now: Date = new Date()) {
+  await ready();
+  await expireStaleRequests(now);
+  const settings = await loadSettings();
+  const pending = await Booking.find({ type: "venue", status: "pending_approval" })
+    .sort({ "history.0.at": 1 })
+    .lean<BookingRecord[]>();
+  return pending.map((b) => ({
+    ...toScheduleBooking(b),
+    customerEmail: b.customer.email,
+    notes: b.notes,
+    requestedAt: b.history[0]?.at ?? b.createdAt,
+    expiresAt: addMinutes(b.history[0]?.at ?? b.createdAt, settings.venue.approvalTimeoutHours * 60),
+  }));
 }
 
 // ---------------------------------------------------------------------------
@@ -598,9 +754,10 @@ export interface DaySchedule {
  * walk-in ones, with the booking holding each slot. Built from slot locks, so
  * it always agrees with availability.
  */
-export async function getDaySchedule(date: string): Promise<DaySchedule> {
+export async function getDaySchedule(date: string, clock: Clock = {}): Promise<DaySchedule> {
   if (!isLocalDate(date)) throw new BookingError("INVALID_INPUT", "date must be YYYY-MM-DD");
   await ready();
+  await expireStaleRequests(clock.now ?? new Date());
   const settings = await loadSettings();
   const day = businessDayWindow(date, settings.openingHours, settings.timezone);
   const base = { date, timezone: settings.timezone, slotMinutes: settings.slotMinutes };
@@ -748,6 +905,11 @@ interface BookingDraft {
   source: BookingRecord["source"];
   by: string;
   now: Date;
+  /** Defaults: a confirmed station booking whose locks end with it. */
+  type?: BookingRecord["type"];
+  status?: BookingRecord["status"];
+  /** Locks run until here, e.g. to cover the cleanup after a LAN. */
+  lockUntil?: Date;
 }
 
 const MAX_CODE_ATTEMPTS = 5;
@@ -760,19 +922,21 @@ async function insertBooking(
   stations: { _id: Types.ObjectId; hourlyRate: number }[],
   settings: BookingSettings,
 ): Promise<CreatedBooking> {
-  const slots = expandSlots(draft.start, draft.end, settings.slotMinutes);
+  const slots = expandSlots(draft.start, draft.lockUntil ?? draft.end, settings.slotMinutes);
   const manageToken = randomBytes(32).toString("base64url");
+  const type = draft.type ?? "station";
+  const status = draft.status ?? "confirmed";
 
   for (let attempt = 0; attempt < MAX_CODE_ATTEMPTS; attempt++) {
     const bookingId = new Types.ObjectId();
     const doc = {
       _id: bookingId,
       code: generateBookingCode(randomInt),
-      type: "station" as const,
+      type,
       resourceIds: stations.map((s) => s._id),
       start: draft.start,
       end: draft.end,
-      status: "confirmed" as const,
+      status,
       customer: draft.customer,
       ...(draft.partySize ? { partySize: draft.partySize } : {}),
       ...(draft.notes ? { notes: draft.notes } : {}),
@@ -783,7 +947,7 @@ async function insertBooking(
         draft.end,
       ),
       manageTokenHash: createHash("sha256").update(manageToken).digest("hex"),
-      history: [{ at: draft.now, by: draft.by, from: null, to: "confirmed" as const }],
+      history: [{ at: draft.now, by: draft.by, from: null, to: status }],
       createdBy: draft.by,
     };
 

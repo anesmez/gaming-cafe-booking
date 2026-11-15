@@ -2,7 +2,7 @@ import { z } from "zod";
 import { hasRole } from "@/lib/auth/roles";
 import { BookingError, addMinutes, durationOptions, type BookingSettings } from "@/lib/booking";
 import { RESOURCE_TYPES } from "./models/resource";
-import { cancelBooking, createBooking, getBookingByCode, verifyManageToken } from "./booking-service";
+import { cancelBooking, createBooking, getBookingByCode, requestVenueBooking, verifyManageToken } from "./booking-service";
 import { connectDb } from "./db";
 import { notify } from "./email/notify";
 import type { BookingRecord } from "./models/booking";
@@ -26,6 +26,7 @@ export interface PublicSettings {
   station: BookingSettings["station"];
   openingHours: BookingSettings["openingHours"];
   graceMinutes: number;
+  venue: BookingSettings["venue"];
 }
 
 export async function getPublicSettings(): Promise<PublicSettings | null> {
@@ -41,6 +42,7 @@ export async function getPublicSettings(): Promise<PublicSettings | null> {
     station: s.station as BookingSettings["station"],
     openingHours: s.openingHours.map((h) => ({ weekday: h.weekday, open: h.open, close: h.close })),
     graceMinutes: s.graceMinutes,
+    venue: s.venue as BookingSettings["venue"],
   };
 }
 
@@ -106,6 +108,51 @@ export async function placeOnlineBooking(
   }
 }
 
+const lanSchema = z.object({
+  start: z.iso.datetime().transform((v) => new Date(v)),
+  durationMinutes: z.coerce.number().int().positive(),
+  partySize: z.coerce.number().int().min(2).max(100),
+  name: z.string().trim().min(2).max(80),
+  phone: z
+    .string()
+    .trim()
+    .regex(/^\+?[0-9 .-]{9,20}$/),
+  notes: z.string().trim().max(500).default(""),
+});
+export type LanRequestInput = z.input<typeof lanSchema>;
+
+/** A logged-in customer asks for the whole venue. Emails the customer and the owner. */
+export async function placeLanRequest(
+  user: Pick<SessionUser, "id" | "email">,
+  raw: LanRequestInput,
+  now: Date = new Date(),
+): Promise<PlaceResult> {
+  const parsed = lanSchema.safeParse(raw);
+  if (!parsed.success) return { ok: false, error: "INVALID_INPUT" };
+  const input = parsed.data;
+  if (input.durationMinutes % 30 !== 0) return { ok: false, error: "INVALID_DURATION" };
+
+  try {
+    const { booking, manageToken } = await requestVenueBooking(
+      {
+        actor: { role: "customer", userId: user.id },
+        start: input.start,
+        end: addMinutes(input.start, input.durationMinutes),
+        customer: { userId: user.id, name: input.name, phone: input.phone, email: user.email },
+        partySize: input.partySize,
+        ...(input.notes ? { notes: input.notes } : {}),
+      },
+      { now },
+    );
+    await User.updateOne({ _id: user.id }, { $set: { name: input.name, phone: input.phone } });
+    await notify({ type: "lan_requested", booking, manageToken });
+    return { ok: true, code: booking.code, manageToken };
+  } catch (error) {
+    if (error instanceof BookingError) return { ok: false, error: error.code };
+    throw error;
+  }
+}
+
 /** Who may see and cancel a booking from its page. */
 export type Access = "token" | "owner" | "staff" | null;
 
@@ -125,6 +172,8 @@ export interface ManagedBooking {
   end: Date;
   stationNames: string[];
   priceEstimate: number;
+  quotedPrice?: number;
+  partySize?: number;
   customerName: string;
   /** Last moment a customer can cancel online. */
   cancelUntil: Date;
@@ -154,7 +203,10 @@ export async function loadManagedBooking(
     getPublicSettings(),
     Resource.find({ _id: { $in: booking.resourceIds } }).select({ name: 1, sortOrder: 1 }).sort({ sortOrder: 1 }).lean(),
   ]);
-  const cutoff = settings?.station.cancelCutoffMinutes ?? 0;
+  const cutoff =
+    booking.type === "venue"
+      ? (settings?.venue.cancelCutoffHours ?? 0) * 60
+      : (settings?.station.cancelCutoffMinutes ?? 0);
 
   return {
     access,
@@ -165,6 +217,8 @@ export async function loadManagedBooking(
     end: booking.end,
     stationNames: stations.map((s) => s.name),
     priceEstimate: booking.priceEstimate,
+    ...(booking.quotedPrice !== undefined ? { quotedPrice: booking.quotedPrice } : {}),
+    ...(booking.partySize ? { partySize: booking.partySize } : {}),
     customerName: booking.customer.name,
     cancelUntil: addMinutes(booking.start, -cutoff),
   };

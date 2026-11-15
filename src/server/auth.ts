@@ -64,8 +64,10 @@ export function createAuth(db: unknown, options: CreateAuthOptions) {
       storage: "database",
       modelName: "rateLimits",
       customRules: {
-        "/email-otp/send-verification-otp": { window: 60, max: 3 },
-        "/sign-in/email-otp": { window: 60, max: 10 },
+        // Per IP. Customers on the café's Wi-Fi share one address, so keep
+        // these generous; the per-address limit in notify() guards inboxes.
+        "/email-otp/send-verification-otp": { window: 60, max: 10 },
+        "/sign-in/email-otp": { window: 60, max: 20 },
       },
     },
     plugins: [

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { algiers } from "@/lib/booking/fixtures";
-import { composeBookingConfirmed, composeLoginCode, currencyLabel, type BookingEmailInput } from "./compose";
+import { composeBookingConfirmed, composeLanEmail, composeLoginCode, currencyLabel, type BookingEmailInput } from "./compose";
 
 const venue = {
   venueName: "Respawn Cyber Gaming",
@@ -112,5 +112,56 @@ describe("currencyLabel", () => {
   it("writes Algerian dinars the local way", () => {
     expect(currencyLabel("DZD")).toBe("DA");
     expect(currencyLabel("EUR")).toBe("EUR");
+  });
+});
+
+describe("composeLanEmail", () => {
+  const input = {
+    to: "owner@example.com",
+    booking: {
+      code: "GC-LAN1",
+      start: algiers("2026-12-04", "18:00"),
+      end: algiers("2026-12-04", "22:00"),
+      customerName: "Team Raptors",
+      customerPhone: "0550 11 22 33",
+      partySize: 12,
+      notes: "Tournoi Valorant",
+    },
+    venue,
+    url: "https://example.com/admin/requests",
+    deadline: algiers("2026-12-02", "12:00"),
+  };
+
+  it("gives the owner the group, the contact, the deadline and a link to answer", async () => {
+    const email = await composeLanEmail("owner", input);
+    expect(email.subject).toBe("Nouvelle demande de LAN · vendredi 4 décembre");
+    for (const text of ["Team Raptors", "0550 11 22 33", "12 personnes", "Tournoi Valorant", "18:00 – 22:00", "mercredi 2 décembre à 12:00"]) {
+      expect(email.text).toContain(text);
+    }
+    expect(email.html).toContain('href="https://example.com/admin/requests"');
+  });
+
+  it("does not show the customer's own contact back to them", async () => {
+    const email = await composeLanEmail("requested", { ...input, to: "raptors@example.com", approvalTimeoutHours: 24 });
+    expect(email.subject).toBe("Demande de LAN reçue · GC-LAN1");
+    expect(email.text).toContain("24 h");
+    expect(email.text).not.toContain("0550 11 22 33");
+  });
+
+  it("states the agreed price and the owner's note on approval", async () => {
+    const email = await composeLanEmail("approved", {
+      ...input,
+      booking: { ...input.booking, quotedPrice: 15000 },
+      ownerNote: "Clavier perso autorisé",
+    });
+    expect(email.subject).toBe("LAN confirmée · GC-LAN1");
+    expect(email.text).toContain("15000 DA");
+    expect(email.text).toContain("Clavier perso autorisé");
+  });
+
+  it("says plainly when the request is refused", async () => {
+    const email = await composeLanEmail("rejected", input);
+    expect(email.subject).toBe("Demande de LAN refusée · GC-LAN1");
+    expect(email.text).toContain("libérée");
   });
 });

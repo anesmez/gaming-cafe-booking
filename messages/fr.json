@@ -69,7 +69,8 @@
       "today": "Aujourd'hui",
       "calendar": "Calendrier",
       "bookings": "Réservations",
-      "new": "Nouvelle"
+      "new": "Nouvelle",
+      "requests": "Demandes LAN"
     },
     "todayTitle": "Aujourd'hui",
     "calendarTitle": "Calendrier",
@@ -167,7 +168,31 @@
       "NOT_FOUND": "Réservation ou poste introuvable.",
       "FORBIDDEN": "Action réservée à l'équipe.",
       "other": "L'action n'a pas pu être faite. Réessayez."
-    }
+    },
+    "requests": {
+      "title": "Demandes de LAN",
+      "lead": "Chaque demande bloque toute la salle jusqu'à votre réponse. Sans réponse, elle expire après {hours} h.",
+      "empty": "Aucune demande en attente.",
+      "ownerOnly": "Seul le gérant peut accepter ou refuser une demande. Vous pouvez les consulter ici.",
+      "when": "Quand",
+      "group": "Groupe",
+      "groupValue": "{count} personnes",
+      "customer": "Client",
+      "notes": "Message",
+      "expires": "Expire le {date}",
+      "price": "Prix convenu (DA)",
+      "pricePlaceholder": "ex. 15000",
+      "note": "Message au client (facultatif)",
+      "approve": "Accepter",
+      "reject": "Refuser",
+      "done": {
+        "approved": "Demande acceptée. Le client est prévenu par e-mail.",
+        "rejected": "Demande refusée. La salle est libérée et le client prévenu."
+      },
+      "open": "Voir la réservation"
+    },
+    "pendingRequest": "Demande de LAN en attente de réponse.",
+    "answerRequest": "Répondre à la demande"
   },
   "email": {
     "footer": "{venue} · {address}",
@@ -197,6 +222,43 @@
       "cancellation": "Annulation en ligne possible jusqu'à {hours} h avant le début.",
       "calendarSummary": "{venue} · {stations}",
       "calendarDescription": "Code de réservation : {code}"
+    },
+    "lan": {
+      "date": "Date",
+      "time": "Horaire",
+      "group": "Groupe",
+      "groupValue": "{count} personnes",
+      "customer": "Client",
+      "phone": "Téléphone",
+      "notes": "Message",
+      "price": "Prix",
+      "priceValue": "{amount} {currency}, à régler sur place",
+      "manage": "Voir ma demande",
+      "requested": {
+        "subject": "Demande de LAN reçue · {code}",
+        "heading": "Votre demande de LAN est bien reçue",
+        "intro": "Bonjour {name}, toute la salle est bloquée pour vous en attendant la réponse du gérant.",
+        "wait": "Vous recevrez sa réponse par e-mail. Sans réponse sous {hours} h, la demande expire et la salle est libérée."
+      },
+      "owner": {
+        "subject": "Nouvelle demande de LAN · {date}",
+        "heading": "Nouvelle demande de LAN",
+        "intro": "{name} demande toute la salle. Les postes sont bloqués jusqu'à votre réponse.",
+        "deadline": "Sans réponse avant le {deadline}, la demande expire et la salle est libérée.",
+        "open": "Répondre à la demande"
+      },
+      "approved": {
+        "subject": "LAN confirmée · {code}",
+        "heading": "Votre LAN est confirmée",
+        "intro": "Bonjour {name}, le gérant a accepté votre demande. Toute la salle est à vous. Présentez le code {code} à l'accueil."
+      },
+      "rejected": {
+        "subject": "Demande de LAN refusée · {code}",
+        "heading": "Votre demande de LAN n'a pas été acceptée",
+        "intro": "Bonjour {name}, le gérant ne peut pas accepter cette demande. La salle a été libérée.",
+        "other": "Vous pouvez faire une nouvelle demande pour une autre date ou nous contacter."
+      },
+      "ownerNote": "Message du gérant : {note}"
     }
   },
   "book": {
@@ -211,7 +273,7 @@
       "pc": "PC gaming",
       "console": "PS5"
     },
-    "lanHint": "Pour privatiser toute la salle (LAN), contactez-nous directement.",
+    "lanHint": "Pour privatiser toute la salle (LAN) :",
     "players": "Nombre de postes",
     "playersValue": "{count, plural, one {# poste} other {# postes côte à côte}}",
     "when": "Quel jour ?",
@@ -244,7 +306,8 @@
       "INVALID_INPUT": "Vérifiez votre nom et votre numéro de téléphone.",
       "LOGIN": "Votre session a expiré. Reconnectez-vous.",
       "other": "La réservation n'a pas pu être enregistrée. Réessayez."
-    }
+    },
+    "lanLink": "faire une demande de LAN"
   },
   "manage": {
     "title": "Votre réservation",
@@ -279,6 +342,29 @@
     "cancelled": "Réservation annulée. Le créneau est libéré.",
     "cancelError": "L'annulation n'a pas pu être faite. Réessayez ou appelez l'accueil.",
     "bookAgain": "Faire une autre réservation",
-    "home": "Retour à l'accueil"
+    "home": "Retour à l'accueil",
+    "pendingNotice": "Demande envoyée. La salle est bloquée pour vous jusqu'à la réponse du gérant, par e-mail.",
+    "quoted": "Prix convenu",
+    "partySize": "Groupe",
+    "partySizeValue": "{count} personnes"
+  },
+  "lan": {
+    "title": "Demande de LAN",
+    "lead": "Toute la salle pour votre groupe : les {stations} PC et la PS5. Le gérant valide la demande sous {hours} h ; en attendant, la salle est bloquée pour vous.",
+    "date": "Quel jour ?",
+    "dateHint": "Au moins {hours} h à l'avance.",
+    "duration": "Durée",
+    "time": "À quelle heure ?",
+    "loadingSlots": "Recherche des horaires où toute la salle est libre…",
+    "noSlots": "Toute la salle n'est pas libre ce jour-là pour cette durée. Essayez une autre date ou une durée plus courte.",
+    "closed": "Fermé ce jour-là.",
+    "group": "Nombre de joueurs",
+    "notes": "Votre message (jeux, matériel, besoins…)",
+    "summary": "{date}, {start} – {end}",
+    "priceNote": "Le prix vous est confirmé par le gérant avec sa réponse.",
+    "submit": "Envoyer la demande",
+    "submitting": "Envoi…",
+    "pickTime": "Choisissez un horaire",
+    "back": "Réserver des postes à la place"
   }
 }

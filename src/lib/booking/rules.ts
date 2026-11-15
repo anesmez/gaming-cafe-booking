@@ -137,3 +137,36 @@ export function assertCancellable(
 export function holdsLocks(status: BookingStatus): boolean {
   return (LOCK_HOLDING_STATUSES as readonly BookingStatus[]).includes(status);
 }
+
+export interface VenueRequest {
+  start: Date;
+  end: Date;
+}
+
+/**
+ * Rules for a full-venue (LAN) request: slot grid, minimum length, inside one
+ * business day, booked between 48 hours and 60 days ahead. Returns when the
+ * slot locks end: after the cleanup buffer, but never past closing time.
+ */
+export function validateVenueRequest(request: VenueRequest, settings: BookingSettings, now: Date): Date {
+  const { start, end } = request;
+  const { slotMinutes, venue } = settings;
+
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+    throw new BookingError("INVALID_INPUT", "start and end must be valid dates");
+  }
+  if (!isSlotAligned(start, slotMinutes) || !isSlotAligned(end, slotMinutes)) {
+    throw new BookingError("INVALID_INPUT", `start and end must fall on ${slotMinutes}-minute slots`);
+  }
+  if (minutesBetween(start, end) < venue.minMinutes) {
+    throw new BookingError("INVALID_DURATION", `a LAN lasts at least ${venue.minMinutes} minutes`);
+  }
+  if (start < addMinutes(now, venue.minLeadHours * 60)) throw new BookingError("TOO_SOON");
+  if (start > addMinutes(now, venue.maxAdvanceDays * DAY_MINUTES)) throw new BookingError("TOO_FAR");
+
+  const day = resolveBusinessDay(start, settings);
+  if (!day || end > day.close) throw new BookingError("OUTSIDE_HOURS");
+
+  const withBuffer = addMinutes(end, venue.bufferMinutes);
+  return withBuffer > day.close ? day.close : withBuffer;
+}

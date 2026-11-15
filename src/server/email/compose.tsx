@@ -6,6 +6,7 @@ import { buildIcs } from "@/lib/booking/ics";
 import messages from "../../../messages/fr.json";
 import { BookingConfirmedEmail } from "./templates/booking-confirmed";
 import { LoginCodeEmail } from "./templates/login-code";
+import { NoticeEmail } from "./templates/notice";
 import type { EmailMessage } from "./transport";
 
 /**
@@ -151,4 +152,119 @@ export async function composeBookingConfirmed(input: BookingEmailInput): Promise
       },
     ],
   };
+}
+
+export interface LanEmailInput {
+  to: string;
+  booking: {
+    code: string;
+    start: Date;
+    end: Date;
+    customerName: string;
+    customerPhone: string;
+    partySize?: number;
+    notes?: string;
+    quotedPrice?: number;
+  };
+  venue: VenueInfo;
+  url: string;
+  approvalTimeoutHours?: number;
+  deadline?: Date;
+  ownerNote?: string;
+}
+
+function lanRows(input: LanEmailInput, withCustomer: boolean) {
+  const { booking, venue } = input;
+  const at = (d: Date, p: string) => formatInTimeZone(d, venue.timezone, p, { locale: fr });
+  return [
+    { label: t("lan.date"), value: at(booking.start, "EEEE d MMMM yyyy") },
+    { label: t("lan.time"), value: `${at(booking.start, "HH:mm")} – ${at(booking.end, "HH:mm")}` },
+    ...(booking.partySize ? [{ label: t("lan.group"), value: t("lan.groupValue", { count: booking.partySize }) }] : []),
+    ...(withCustomer
+      ? [
+          { label: t("lan.customer"), value: booking.customerName },
+          { label: t("lan.phone"), value: booking.customerPhone },
+          ...(booking.notes ? [{ label: t("lan.notes"), value: booking.notes }] : []),
+        ]
+      : []),
+    ...(booking.quotedPrice
+      ? [
+          {
+            label: t("lan.price"),
+            value: t("lan.priceValue", { amount: booking.quotedPrice, currency: currencyLabel(venue.currency) }),
+          },
+        ]
+      : []),
+  ];
+}
+
+export type LanEmailKind = "requested" | "owner" | "approved" | "rejected";
+
+export function composeLanEmail(kind: LanEmailKind, input: LanEmailInput): Promise<EmailMessage> {
+  const { booking, venue } = input;
+  const name = booking.customerName;
+  const note = input.ownerNote ? t("lan.ownerNote", { note: input.ownerNote }) : undefined;
+
+  const content: Record<LanEmailKind, () => { subject: string; heading: string; paragraphs: string[]; button?: { label: string; href: string }; withCustomer: boolean; note?: string }> = {
+    requested: () => ({
+      subject: t("lan.requested.subject", { code: booking.code }),
+      heading: t("lan.requested.heading"),
+      paragraphs: [
+        t("lan.requested.intro", { name }),
+        t("lan.requested.wait", { hours: input.approvalTimeoutHours ?? 24 }),
+      ],
+      button: { label: t("lan.manage"), href: input.url },
+      withCustomer: false,
+    }),
+    owner: () => ({
+      subject: t("lan.owner.subject", {
+        date: formatInTimeZone(booking.start, venue.timezone, "EEEE d MMMM", { locale: fr }),
+      }),
+      heading: t("lan.owner.heading"),
+      paragraphs: [
+        t("lan.owner.intro", { name }),
+        ...(input.deadline
+          ? [
+              t("lan.owner.deadline", {
+                deadline: formatInTimeZone(input.deadline, venue.timezone, "EEEE d MMMM 'à' HH:mm", { locale: fr }),
+              }),
+            ]
+          : []),
+      ],
+      button: { label: t("lan.owner.open"), href: input.url },
+      withCustomer: true,
+    }),
+    approved: () => ({
+      subject: t("lan.approved.subject", { code: booking.code }),
+      heading: t("lan.approved.heading"),
+      paragraphs: [t("lan.approved.intro", { name, code: booking.code })],
+      button: { label: t("lan.manage"), href: input.url },
+      withCustomer: false,
+      note,
+    }),
+    rejected: () => ({
+      subject: t("lan.rejected.subject", { code: booking.code }),
+      heading: t("lan.rejected.heading"),
+      paragraphs: [t("lan.rejected.intro", { name }), t("lan.rejected.other")],
+      withCustomer: false,
+      note,
+    }),
+  };
+
+  const c = content[kind]();
+  return toMessage(
+    input.to,
+    c.subject,
+    <NoticeEmail
+      lang={LOCALE}
+      venueName={venue.venueName}
+      title={c.subject}
+      heading={c.heading}
+      paragraphs={c.paragraphs}
+      rows={lanRows(input, c.withCustomer)}
+      button={c.button}
+      note={c.note}
+      footer={footer(venue)}
+    />,
+  );
 }

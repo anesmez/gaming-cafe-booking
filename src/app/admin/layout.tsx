@@ -8,6 +8,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const links = [
     { href: "/admin", label: t("admin.nav.today") },
     { href: "/admin/calendar", label: t("admin.nav.calendar") },
+    { href: "/admin/requests", label: t("admin.nav.requests") },
     { href: "/admin/bookings", label: t("admin.nav.bookings") },
     { href: "/admin/bookings/new", label: t("admin.nav.new") },
   ];

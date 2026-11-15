@@ -5,7 +5,8 @@ import { getAvailability } from "@/server/booking-service";
 
 const querySchema = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  type: z.enum(["pc", "console"]),
+  // "venue": every active station, for a LAN request.
+  type: z.enum(["pc", "console", "venue"]),
 });
 
 /**
@@ -20,7 +21,10 @@ export async function GET(request: Request) {
   if (!query.success) return Response.json({ error: "INVALID_INPUT" }, { status: 400 });
 
   try {
-    const day = await getAvailability({ date: query.data.date, resourceType: query.data.type, onlineOnly: true });
+    const day =
+      query.data.type === "venue"
+        ? await getAvailability({ date: query.data.date })
+        : await getAvailability({ date: query.data.date, resourceType: query.data.type, onlineOnly: true });
     return Response.json(
       {
         date: day.date,

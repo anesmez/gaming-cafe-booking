@@ -80,18 +80,29 @@ async function ManageContent({ params, searchParams }: Props) {
     { label: t("date"), value: fmt(booking.start, "EEEE d MMMM yyyy") },
     { label: t("time"), value: `${fmt(booking.start, "HH:mm")} – ${fmt(booking.end, "HH:mm")}` },
     { label: t("stations"), value: booking.stationNames.join(", ") },
-    {
-      label: t("price"),
-      value:
-        booking.priceEstimate > 0
-          ? t("priceValue", { amount: booking.priceEstimate, currency: currencyLabel(settings.currency) })
-          : t("priceOnSite"),
-    },
+    ...(booking.partySize ? [{ label: t("partySize"), value: t("partySizeValue", { count: booking.partySize }) }] : []),
+    booking.quotedPrice !== undefined
+      ? {
+          label: t("quoted"),
+          value: t("priceValue", { amount: booking.quotedPrice, currency: currencyLabel(settings.currency) }),
+        }
+      : {
+          label: t("price"),
+          value:
+            booking.priceEstimate > 0
+              ? t("priceValue", { amount: booking.priceEstimate, currency: currencyLabel(settings.currency) })
+              : t("priceOnSite"),
+        },
     ...(settings.address ? [{ label: t("address"), value: settings.address }] : []),
   ];
 
   return (
     <div className="flex flex-col gap-5">
+      {booking.status === "pending_approval" ? (
+        <p role="status" className="rounded-md border border-border bg-muted px-4 py-3 text-sm">
+          {t("pendingNotice")}
+        </p>
+      ) : null}
       {first(query.new) && booking.status === "confirmed" ? (
         <p role="status" className="rounded-md border border-primary/40 bg-primary/10 px-4 py-3 text-sm">
           {t("justBooked")}

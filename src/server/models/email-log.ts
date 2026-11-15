@@ -1,6 +1,13 @@
 import { Schema, model, models, type Model, type Types } from "mongoose";
 
-export const EMAIL_TEMPLATES = ["login_code", "booking_confirmed"] as const;
+export const EMAIL_TEMPLATES = [
+  "login_code",
+  "booking_confirmed",
+  "lan_requested",
+  "lan_request_owner",
+  "lan_approved",
+  "lan_rejected",
+] as const;
 export type EmailTemplate = (typeof EMAIL_TEMPLATES)[number];
 
 export const EMAIL_STATUSES = ["pending", "sent", "failed"] as const;
