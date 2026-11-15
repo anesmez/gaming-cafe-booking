@@ -1,0 +1,28 @@
+{
+  "app": {
+    "name": "Gaming Café",
+    "title": "Gaming Café — Réservation en ligne",
+    "description": "Réservez un PC, la PS5 ou toute la salle pour une LAN, sur les créneaux réellement disponibles."
+  },
+  "home": {
+    "eyebrow": "Réservation en ligne",
+    "headline": "Votre poste est réservé, sans appel ni message.",
+    "lead": "Choisissez un créneau libre, recevez la confirmation par e-mail et présentez votre code à l'accueil.",
+    "bookSoon": "Réservation bientôt disponible",
+    "payOnSite": "Paiement sur place, en espèces.",
+    "offers": {
+      "pc": {
+        "title": "PC gaming",
+        "description": "Un ou plusieurs postes côte à côte, pour jouer seul ou en équipe."
+      },
+      "ps5": {
+        "title": "PS5",
+        "description": "La console pour vos sessions entre amis."
+      },
+      "lan": {
+        "title": "LAN privée",
+        "description": "Toute la salle rien que pour votre groupe, sur demande."
+      }
+    }
+  }
+}
