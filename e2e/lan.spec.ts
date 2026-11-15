@@ -60,7 +60,7 @@ test("a group requests a LAN and the owner approves it", async ({ page, browser 
 
   await expect(page).toHaveURL(/\/booking\/GC-[A-Z0-9]{4}\?t=/);
   await expect(page.getByTestId("booking-status")).toHaveText("En attente de validation");
-  await expect(page.getByText("La salle est bloquée pour vous")).toBeVisible();
+  await expect(page.getByRole("status").filter({ hasText: "La salle est bloquée pour vous" })).toBeVisible();
   const code = (await page.getByTestId("booking-code").textContent())?.trim();
 
   // Both emails went out.
