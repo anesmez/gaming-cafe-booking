@@ -1,4 +1,5 @@
 import { Booking } from "./models/booking";
+import { EmailLog } from "./models/email-log";
 import { Resource } from "./models/resource";
 import { Settings } from "./models/settings";
 import { SlotLock } from "./models/slot-lock";
@@ -22,7 +23,14 @@ export interface SeedResult {
 export async function seed(ownerEmail: string): Promise<SeedResult> {
   // Build every index up front, including the unique slot-lock index that
   // prevents double bookings.
-  await Promise.all([Settings.init(), Resource.init(), User.init(), Booking.init(), SlotLock.init()]);
+  await Promise.all([
+    Settings.init(),
+    Resource.init(),
+    User.init(),
+    Booking.init(),
+    SlotLock.init(),
+    EmailLog.init(),
+  ]);
 
   const defaults = buildDefaultSettings();
   const settingsWrite = await Settings.updateOne(

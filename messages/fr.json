@@ -24,6 +24,76 @@
         "title": "LAN privée",
         "description": "Toute la salle rien que pour votre groupe, sur demande."
       }
+    },
+    "staffLink": "Espace équipe"
+  },
+  "login": {
+    "title": "Connexion",
+    "lead": "Entrez votre adresse e-mail. Nous vous envoyons un code à 6 chiffres, sans mot de passe.",
+    "emailLabel": "Adresse e-mail",
+    "emailPlaceholder": "vous@exemple.com",
+    "sendCode": "Recevoir le code",
+    "sending": "Envoi…",
+    "codeLead": "Code envoyé à {email}. Il est valable 10 minutes.",
+    "codeLabel": "Code à 6 chiffres",
+    "verify": "Se connecter",
+    "verifying": "Vérification…",
+    "changeEmail": "Utiliser une autre adresse",
+    "resend": "Renvoyer un code",
+    "back": "Retour à l'accueil",
+    "errors": {
+      "invalidEmail": "Cette adresse e-mail n'est pas valide.",
+      "invalidCode": "Le code doit contenir 6 chiffres.",
+      "wrongCode": "Ce code n'est pas le bon. Vérifiez l'e-mail le plus récent.",
+      "expiredCode": "Ce code a expiré. Demandez-en un nouveau.",
+      "tooManyAttempts": "Trop d'essais avec ce code. Demandez-en un nouveau.",
+      "tooManyCodes": "Trop de codes demandés pour cette adresse. Réessayez dans une heure.",
+      "unavailable": "Impossible d'envoyer le code pour le moment. Réessayez plus tard."
+    }
+  },
+  "admin": {
+    "title": "Espace équipe",
+    "loading": "Chargement…",
+    "signedInAs": "Connecté : {email}",
+    "roles": {
+      "owner": "Gérant",
+      "staff": "Équipe",
+      "customer": "Client"
+    },
+    "comingSoon": "Le tableau de bord des réservations arrive bientôt.",
+    "forbiddenTitle": "Accès réservé à l'équipe",
+    "forbiddenLead": "Le compte {email} n'a pas accès à cet espace.",
+    "signOut": "Se déconnecter",
+    "home": "Retour à l'accueil"
+  },
+  "email": {
+    "footer": "{venue} · {address}",
+    "footerNoAddress": "{venue}",
+    "loginCode": {
+      "subject": "{code} est votre code de connexion {venue}",
+      "heading": "Votre code de connexion",
+      "intro": "Saisissez ce code pour vous connecter :",
+      "validity": "Il est valable {minutes} minutes et ne peut servir qu'une fois.",
+      "ignore": "Vous n'avez rien demandé ? Ignorez cet e-mail : personne ne peut se connecter sans ce code."
+    },
+    "bookingConfirmed": {
+      "subject": "Réservation confirmée · {code}",
+      "heading": "Votre réservation est confirmée",
+      "intro": "Bonjour {name}, votre créneau est réservé. Présentez ce code à l'accueil :",
+      "codeLabel": "Code de réservation",
+      "date": "Date",
+      "time": "Horaire",
+      "stations": "Postes",
+      "price": "Prix estimé",
+      "address": "Adresse",
+      "timeValue": "{start} – {end}",
+      "priceValue": "{amount} {currency}, à régler sur place",
+      "priceOnSite": "À régler sur place",
+      "manage": "Voir ou annuler ma réservation",
+      "arrival": "Votre poste est gardé {minutes} minutes après l'heure de début. Passé ce délai, il peut être libéré.",
+      "cancellation": "Annulation en ligne possible jusqu'à {hours} h avant le début.",
+      "calendarSummary": "{venue} · {stations}",
+      "calendarDescription": "Code de réservation : {code}"
     }
   }
 }
