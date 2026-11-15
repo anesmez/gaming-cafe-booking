@@ -10,7 +10,7 @@ The product spec is `docs/SPEC.md`. Read it before any work. It defines the book
 - [x] 2. Booking engine
 - [x] 3. Auth and email
 - [x] 4. Public booking flow
-- [ ] 5. Dashboard
+- [x] 5. Dashboard
 - [ ] 6. LAN requests
 - [ ] 7. Settings
 - [ ] 8. Jobs and launch
@@ -29,6 +29,7 @@ Tick a milestone in the same PR that completes it.
 - Every user-facing string goes through next-intl (`messages/fr.json`). No hard-coded copy in components.
 - Validate every server input with zod. Read environment variables through `getEnv()` in `src/lib/env.ts`, at the point of use, never at module top level.
 - UI components follow shadcn/ui conventions in `src/components/ui/`.
+- Email goes out through Gmail (`GMAIL_USER` + `GMAIL_APP_PASSWORD`, no domain needed) when set, else Resend.
 - All email goes through `notify()` in `src/server/email/notify.ts`. It never throws; a booking must not fail because its email did.
 - Role checks happen on the server with `getCurrentUser()` from `src/server/session.ts`. `role`, `blocked` and `noShowCount` are never writable through the auth API.
 

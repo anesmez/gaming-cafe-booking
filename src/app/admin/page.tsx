@@ -1,60 +1,48 @@
-import Link from "next/link";
-import { redirect } from "next/navigation";
-import { getTranslations } from "next-intl/server";
+import { formatInTimeZone } from "date-fns-tz";
+import { fr } from "date-fns/locale";
 import { useTranslations } from "next-intl";
+import { getTranslations } from "next-intl/server";
+import { connection } from "next/server";
 import { Suspense } from "react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { hasRole } from "@/lib/auth/roles";
-import { getCurrentUser } from "@/server/session";
-import { signOut } from "../login/actions";
+import { getDaySchedule } from "@/server/booking-service";
+import { currentBusinessDate, requireStaffUser } from "@/server/staff";
+import { BookingList } from "./_components/day-list";
+import { DayGrid } from "./_components/day-grid";
+import { Forbidden } from "./_components/gate";
 
-/**
- * Staff area. Milestone 5 puts the dashboard here; for now it proves the role
- * check: customers and anonymous visitors never see staff content.
- */
-export default function AdminPage() {
+/** The counter's home: today's grid, then today's list. */
+export default function AdminTodayPage() {
   const t = useTranslations("admin");
-
   return (
-    <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 px-5 py-8 sm:py-14">
-      <h1 className="text-2xl font-semibold">{t("title")}</h1>
-      {/* The session is read at request time, so it streams in behind this boundary. */}
-      <Suspense fallback={<p className="text-sm text-muted-foreground">{t("loading")}</p>}>
-        <AdminHome />
-      </Suspense>
-    </main>
+    <Suspense fallback={<p className="text-sm text-muted-foreground">{t("loading")}</p>}>
+      <Today />
+    </Suspense>
   );
 }
 
-async function AdminHome() {
-  const user = await getCurrentUser();
-  if (!user) redirect("/login?next=/admin");
+async function Today() {
+  await connection();
+  const gate = await requireStaffUser("/admin");
+  if (!gate.allowed) return <Forbidden email={gate.user.email} />;
 
   const t = await getTranslations("admin");
-  const allowed = hasRole(user.role, "staff");
+  const now = new Date();
+  const schedule = await getDaySchedule(await currentBusinessDate(now));
+  const heading = schedule.opensAt
+    ? formatInTimeZone(schedule.opensAt, schedule.timezone, "EEEE d MMMM", { locale: fr })
+    : schedule.date;
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{allowed ? t(`roles.${user.role}`) : t("forbiddenTitle")}</CardTitle>
-        <CardDescription>
-          {allowed ? t("signedInAs", { email: user.email }) : t("forbiddenLead", { email: user.email })}
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-4">
-        {allowed ? <p className="text-sm text-muted-foreground">{t("comingSoon")}</p> : null}
-        <div className="flex flex-wrap gap-2">
-          <form action={signOut}>
-            <Button type="submit" variant="outline">
-              {t("signOut")}
-            </Button>
-          </form>
-          <Button asChild variant="ghost">
-            <Link href="/">{t("home")}</Link>
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
+    <>
+      <div>
+        <h1 className="text-2xl font-semibold">{t("todayTitle")}</h1>
+        <p className="capitalize-first text-sm text-muted-foreground">{heading}</p>
+      </div>
+      <DayGrid schedule={schedule} now={now} />
+      <section className="flex flex-col gap-2">
+        <h2 className="text-sm font-semibold">{t("dayList")}</h2>
+        <BookingList bookings={schedule.dayList} timezone={schedule.timezone} empty={t("dayListEmpty")} />
+      </section>
+    </>
   );
 }

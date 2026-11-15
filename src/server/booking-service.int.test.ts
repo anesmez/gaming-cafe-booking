@@ -4,7 +4,13 @@ import { BOOKING_CODE_RE, BookingError, LOCK_HOLDING_STATUSES, type BookingError
 import { algiers, testSettings } from "@/lib/booking/fixtures";
 import {
   cancelBooking,
+  checkInBooking,
+  completeBooking,
   createBooking,
+  getBookingDetails,
+  getDaySchedule,
+  markNoShow,
+  searchBookings,
   getAvailability,
   getBookingByCode,
   moveBooking,
@@ -491,5 +497,136 @@ describe("getAvailability", () => {
   it("rejects a malformed date", async () => {
     expect(await codeOf(getAvailability({ date: "02/12/2026" }))).toBe("INVALID_INPUT");
     expect(await codeOf(getAvailability({ date: "2026-02-30" }))).toBe("INVALID_INPUT");
+  });
+});
+
+describe("counter actions", () => {
+  const today = "2026-12-01";
+  async function walkIn(start = "18:00", end = "20:00", overrides: Partial<CreateBookingInput> = {}) {
+    return (await book([pcIds[0]], at(start, today), at(end, today), overrides)).booking;
+  }
+
+  it("checks a customer in from an hour before the start, not earlier", async () => {
+    const booking = await walkIn();
+
+    expect(await codeOf(checkInBooking({ code: booking.code, actor: staff }, { now: at("16:59", today) }))).toBe("TOO_SOON");
+    const checked = await checkInBooking({ code: booking.code, actor: staff }, { now: at("17:00", today) });
+
+    expect(checked.status).toBe("checked_in");
+    expect(checked.history.at(-1)).toMatchObject({ from: "confirmed", to: "checked_in", by: "staff" });
+    expect(await SlotLock.countDocuments({ bookingId: booking._id })).toBe(4); // still held
+  });
+
+  it("finishes a session early and frees what is left of it", async () => {
+    const booking = await walkIn();
+    await checkInBooking({ code: booking.code, actor: staff }, { now: at("18:00", today) });
+
+    const done = await completeBooking({ code: booking.code, actor: staff }, { now: at("19:10", today) });
+
+    expect(done.status).toBe("completed");
+    expect(await SlotLock.countDocuments({ bookingId: booking._id })).toBe(0);
+    expect(await codeOf(book([pcIds[0]], at("19:30", today), at("20:30", today)))).toBe("OK");
+  });
+
+  it("marks a no-show only after the 15-minute grace period, frees the slots and counts it", async () => {
+    const user = await User.create({ email: "late@example.com" });
+    const booking = await walkIn("18:00", "20:00", {
+      customer: { userId: String(user._id), name: "Late", phone: "0550000000", email: "late@example.com" },
+    });
+
+    expect(await codeOf(markNoShow({ code: booking.code, actor: staff }, { now: at("18:14", today) }))).toBe("TOO_SOON");
+    const missed = await markNoShow({ code: booking.code, actor: staff }, { now: at("18:15", today) });
+
+    expect(missed.status).toBe("no_show");
+    expect(await SlotLock.countDocuments({ bookingId: booking._id })).toBe(0);
+    expect((await User.findById(user._id).lean())?.noShowCount).toBe(1);
+
+    // A repeated click does not count twice.
+    expect(await codeOf(markNoShow({ code: booking.code, actor: staff }, { now: at("18:20", today) }))).toBe("INVALID_STATE");
+    expect((await User.findById(user._id).lean())?.noShowCount).toBe(1);
+  });
+
+  it("blocks online booking after the third no-show", async () => {
+    await User.create({ email: player(7).email, noShowCount: 2 });
+    const { booking } = await bookOnline(7, at("18:00"), at("19:00"));
+
+    await markNoShow({ code: booking.code, actor: staff }, { now: at("18:20") });
+
+    expect(await codeOf(bookOnline(7, at("21:00"), at("22:00")))).toBe("BLOCKED");
+  });
+
+  it("refuses counter actions from customers and in the wrong state", async () => {
+    const booking = await walkIn();
+    expect(await codeOf(checkInBooking({ code: booking.code, actor: customer }, { now: at("18:00", today) }))).toBe(
+      "FORBIDDEN",
+    );
+    expect(await codeOf(completeBooking({ code: booking.code, actor: staff }, { now: at("18:00", today) }))).toBe(
+      "INVALID_STATE",
+    );
+    await cancelBooking({ code: booking.code, actor: staff }, { now: NOW });
+    expect(await codeOf(checkInBooking({ code: booking.code, actor: staff }, { now: at("18:00", today) }))).toBe(
+      "INVALID_STATE",
+    );
+  });
+});
+
+describe("dashboard reads", () => {
+  it("shows every station, walk-in ones included, with the booking holding each slot", async () => {
+    const { booking } = await book([pcIds[0], pcIds[7]], at("18:00"), at("19:00"), {
+      customer: { name: "Group", phone: "0661 22 33 44" },
+    });
+
+    const day = await getDaySchedule(DAY);
+
+    expect(day.rows.map((r) => r.name)).toEqual([...Array.from({ length: 10 }, (_, i) => `PC ${String(i + 1).padStart(2, "0")}`), "PS5"]);
+    const i = day.slotStarts.findIndex((t) => t.getTime() === at("18:00").getTime());
+    const id = String(booking._id);
+    expect(day.rows[0].slots.slice(i, i + 3)).toEqual([id, id, null]);
+    expect(day.rows[7].slots.slice(i, i + 2)).toEqual([id, id]);
+    expect(day.rows[1].slots.every((s) => s === null)).toBe(true);
+    expect(day.bookings[id]).toMatchObject({ code: booking.code, customerName: "Group", status: "confirmed" });
+  });
+
+  it("lists every booking that starts that day, including cancelled ones, in time order", async () => {
+    const late = await book([pcIds[1]], at("21:00"), at("22:00"));
+    const early = await book([pcIds[2]], at("12:00"), at("13:00"));
+    await cancelBooking({ code: late.booking.code, actor: staff }, { now: NOW });
+
+    const day = await getDaySchedule(DAY);
+
+    expect(day.dayList.map((b) => [b.code, b.status])).toEqual([
+      [early.booking.code, "confirmed"],
+      [late.booking.code, "cancelled"],
+    ]);
+    expect(Object.keys(day.bookings)).toEqual([String(early.booking._id)]);
+  });
+
+  it("puts sessions after midnight on the previous business day", async () => {
+    const { booking } = await book([pcIds[0]], at("00:30", "2026-12-03"), at("01:30", "2026-12-03"));
+    expect((await getDaySchedule(DAY)).dayList.map((b) => b.code)).toEqual([booking.code]);
+    expect((await getDaySchedule("2026-12-03")).dayList).toEqual([]);
+  });
+
+  it("finds bookings by code, name or phone typed any way", async () => {
+    const { booking } = await book([pcIds[0]], at("18:00"), at("19:00"), {
+      customer: { name: "Yacine Benali", phone: "0550 12 34 56" },
+    });
+    await book([pcIds[1]], at("18:00"), at("19:00"), { customer: { name: "Other", phone: "0661000000" } });
+
+    for (const q of [booking.code.toLowerCase(), booking.code.slice(3), "benali", "YACINE", "0550123456", "12 34"]) {
+      expect((await searchBookings({ q })).map((b) => b.code), q).toEqual([booking.code]);
+    }
+    expect(await searchBookings({ q: "nobody" })).toEqual([]);
+    expect(await searchBookings({ q: ".*" })).toEqual([]); // typed text is not a pattern
+    expect((await searchBookings({ q: "", date: DAY })).length).toBe(2);
+    expect((await searchBookings({ q: "", status: "cancelled" })).length).toBe(0);
+  });
+
+  it("returns details with stations and history", async () => {
+    const { booking } = await book([pcIds[3], pcIds[2]], at("18:00"), at("19:00"), { notes: "anniversaire" });
+    const details = await getBookingDetails(booking.code);
+    expect(details.resources.map((r) => r.name)).toEqual(["PC 03", "PC 04"]);
+    expect(details.notes).toBe("anniversaire");
+    expect(details.history).toHaveLength(1);
   });
 });
