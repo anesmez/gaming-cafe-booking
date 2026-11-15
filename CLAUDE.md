@@ -11,7 +11,7 @@ The product spec is `docs/SPEC.md`. Read it before any work. It defines the book
 - [x] 3. Auth and email
 - [x] 4. Public booking flow
 - [x] 5. Dashboard
-- [ ] 6. LAN requests
+- [x] 6. LAN requests
 - [ ] 7. Settings
 - [ ] 8. Jobs and launch
 
@@ -24,6 +24,7 @@ Tick a milestone in the same PR that completes it.
 - `src/server/models/` holds the Mongoose schemas. Field names follow the data model in the spec exactly.
 - Availability is read from `slotLocks` only, never from overlap queries on `bookings`.
 - A slot lock exists only while its booking holds slots (`pending_approval`, `confirmed`, `checked_in`). Any status change away from those deletes the booking's locks in the same transaction.
+- Pending LAN requests expire after `venue.approvalTimeoutHours`: `expireStaleRequests()` runs before every availability read and booking write, so an unanswered request never blocks anyone.
 - There is no override or force path around a slot conflict. Do not add one.
 - All dates are stored in UTC and shown in the venue timezone from `settings`. Never rely on server local time.
 - Every user-facing string goes through next-intl (`messages/fr.json`). No hard-coded copy in components.

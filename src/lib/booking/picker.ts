@@ -88,3 +88,47 @@ export function bookableStarts(
   }
   return result;
 }
+
+/**
+ * Start times for a full-venue request: every station free from the start
+ * until the end of the cleanup buffer (cut at closing time), and the start
+ * at least `minLeadHours` away.
+ */
+export function venueStarts(
+  grid: DayGrid,
+  options: {
+    durationMinutes: number;
+    bufferMinutes: number;
+    slotMinutes: number;
+    now: Date;
+    venue: { minLeadHours: number; maxAdvanceDays: number };
+  },
+): { start: Date; end: Date }[] {
+  const { durationMinutes, bufferMinutes, slotMinutes, now, venue } = options;
+  const span = durationMinutes / slotMinutes;
+  const buffer = Math.ceil(bufferMinutes / slotMinutes);
+  if (!Number.isInteger(span) || span < 1 || grid.resources.length === 0) return [];
+
+  const earliest = addMinutes(now, venue.minLeadHours * 60);
+  const latest = addMinutes(now, venue.maxAdvanceDays * DAY_MINUTES);
+  const result: { start: Date; end: Date }[] = [];
+
+  for (let i = 0; i + span <= grid.slotStarts.length; i++) {
+    const start = grid.slotStarts[i];
+    if (start < earliest || start > latest) continue;
+    const until = Math.min(i + span + buffer, grid.slotStarts.length);
+    const allFree = grid.resources.every((r) => {
+      for (let j = i; j < until; j++) if (!r.free[j]) return false;
+      return true;
+    });
+    if (allFree) result.push({ start, end: addMinutes(start, durationMinutes) });
+  }
+  return result;
+}
+
+/** LAN durations: from the minimum up to the longest opening of the week. */
+export function venueDurationOptions(minMinutes: number, maxMinutes: number, slotMinutes: number): number[] {
+  const options: number[] = [];
+  for (let m = minMinutes; m <= maxMinutes; m += slotMinutes) options.push(m);
+  return options;
+}

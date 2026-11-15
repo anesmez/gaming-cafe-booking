@@ -2,6 +2,7 @@
 
 import { formatInTimeZone } from "date-fns-tz";
 import { fr } from "date-fns/locale";
+import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useActionState, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -134,7 +135,12 @@ export function BookingForm({ dates, durations, maxStations, slotMinutes, statio
             </select>
           </div>
         ) : null}
-        <p className="text-xs text-muted-foreground">{t("lanHint")}</p>
+        <p className="text-xs text-muted-foreground">
+          {t("lanHint")}{" "}
+          <Link href="/book/lan" className="font-medium text-primary underline underline-offset-4">
+            {t("lanLink")}
+          </Link>
+        </p>
       </fieldset>
 
       <fieldset className="flex min-w-0 flex-col gap-3">

@@ -129,6 +129,15 @@ async function StaffBooking({ params, searchParams }: Props) {
         </CardContent>
       </Card>
 
+      {b.status === "pending_approval" ? (
+        <div className="flex flex-wrap items-center gap-3 rounded-md border border-border bg-muted px-4 py-3 text-sm">
+          <span>{t("pendingRequest")}</span>
+          <Button asChild size="sm">
+            <Link href="/admin/requests">{t("answerRequest")}</Link>
+          </Button>
+        </div>
+      ) : null}
+
       {actions.length > 0 || canMove ? (
         <form action={bookingStatusAction} className="flex flex-wrap gap-2">
           <input type="hidden" name="code" value={b.code} />
